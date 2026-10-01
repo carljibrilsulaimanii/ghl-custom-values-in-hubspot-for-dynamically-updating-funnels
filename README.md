@@ -145,18 +145,18 @@ flipped to next month is still credited to the session the person actually watch
 
 | Path | What it is | Where it goes |
 |---|---|---|
-| `schema/schema.mjs` | Every property on both objects and the contact properties, with exact internal names | Read by the script; the tables in Steps 1-3 |
-| `scripts/create-schema.mjs` | Creates both objects and all properties through the API (dry run by default) | Your computer (Step 1, Route B) |
-| `modules/free-class-date.module/` | "Dates: Sep 17th, 2026" | Design Manager (Step 5) |
-| `modules/free-class-date-and-time.module/` | "Sep 17th, 2026 @ 7pm EST" | Design Manager |
-| `modules/free-class-calendar-button.module/` | Add To Calendar button from the record's AddEvent id | Design Manager |
-| `modules/free-class-replay-video.module/` | The record's replay embed, responsive | Design Manager |
-| `modules/watch-page-counter.module/` | Countdown to the class start; hides/shows page parts at zero | Design Manager |
-| `modules/replay-countdown.module/` | Countdown to the end of the 72-hour replay window; redirects when it closes | Design Manager |
-| `modules/redirect-reg-form.module/` | Sends late registrants to the live stream instead of the confirmation page | Design Manager |
-| `workflow-actions/late-registration-check.js` | Custom code: did this person register after the class started? | Registration workflow (Step 8) |
-| `workflow-actions/submit-attended-form.js` | Custom code: marks late registrants as attended | Registration workflow (Step 8) |
-| `workflow-actions/class-session-label.js` | Custom code: one "2026-09-17 - Topic" dropdown value per session, for reports | Class Session workflow (Step 11) |
+| [`schema/schema.mjs`](schema/schema.mjs) | Every property on both objects and the contact properties, with exact internal names | Read by the script; the tables in Steps 1-3 |
+| [`scripts/create-schema.mjs`](scripts/create-schema.mjs) | Creates both objects and all properties through the API (dry run by default) | Your computer (Step 1, Route B) |
+| [`modules/free-class-date.module/`](modules/free-class-date.module/)<br>[`module.html`](modules/free-class-date.module/module.html) · [`fields.json`](modules/free-class-date.module/fields.json) · [`meta.json`](modules/free-class-date.module/meta.json) | "Dates: Sep 17th, 2026" | Design Manager (Step 5) |
+| [`modules/free-class-date-and-time.module/`](modules/free-class-date-and-time.module/)<br>[`module.html`](modules/free-class-date-and-time.module/module.html) · [`fields.json`](modules/free-class-date-and-time.module/fields.json) · [`meta.json`](modules/free-class-date-and-time.module/meta.json) | "Sep 17th, 2026 @ 7pm EST" | Design Manager |
+| [`modules/free-class-calendar-button.module/`](modules/free-class-calendar-button.module/)<br>[`module.html`](modules/free-class-calendar-button.module/module.html) · [`module.css`](modules/free-class-calendar-button.module/module.css) · [`fields.json`](modules/free-class-calendar-button.module/fields.json) · [`meta.json`](modules/free-class-calendar-button.module/meta.json) | Add To Calendar button from the record's AddEvent id | Design Manager |
+| [`modules/free-class-replay-video.module/`](modules/free-class-replay-video.module/)<br>[`module.html`](modules/free-class-replay-video.module/module.html) · [`module.css`](modules/free-class-replay-video.module/module.css) · [`fields.json`](modules/free-class-replay-video.module/fields.json) · [`meta.json`](modules/free-class-replay-video.module/meta.json) | The record's replay embed, responsive | Design Manager |
+| [`modules/watch-page-counter.module/`](modules/watch-page-counter.module/)<br>[`module.html`](modules/watch-page-counter.module/module.html) · [`module.css`](modules/watch-page-counter.module/module.css) · [`fields.json`](modules/watch-page-counter.module/fields.json) · [`meta.json`](modules/watch-page-counter.module/meta.json) | Countdown to the class start; hides/shows page parts at zero | Design Manager |
+| [`modules/replay-countdown.module/`](modules/replay-countdown.module/)<br>[`module.html`](modules/replay-countdown.module/module.html) · [`module.css`](modules/replay-countdown.module/module.css) · [`fields.json`](modules/replay-countdown.module/fields.json) · [`meta.json`](modules/replay-countdown.module/meta.json) | Countdown to the end of the 72-hour replay window; redirects when it closes | Design Manager |
+| [`modules/redirect-reg-form.module/`](modules/redirect-reg-form.module/)<br>[`module.html`](modules/redirect-reg-form.module/module.html) · [`module.css`](modules/redirect-reg-form.module/module.css) · [`module.js`](modules/redirect-reg-form.module/module.js) · [`fields.json`](modules/redirect-reg-form.module/fields.json) · [`meta.json`](modules/redirect-reg-form.module/meta.json) | Sends late registrants to the live stream instead of the confirmation page | Design Manager |
+| [`workflow-actions/late-registration-check.js`](workflow-actions/late-registration-check.js) | Custom code: did this person register after the class started? | Registration workflow (Step 8) |
+| [`workflow-actions/submit-attended-form.js`](workflow-actions/submit-attended-form.js) | Custom code: marks late registrants as attended | Registration workflow (Step 8) |
+| [`workflow-actions/class-session-label.js`](workflow-actions/class-session-label.js) | Custom code: one "2026-09-17 - Topic" dropdown value per session, for reports | Class Session workflow (Step 11) |
 | `test/` | 23 tests: the three actions run unchanged, plus a check that every module only reads properties the schema defines | `npm test` |
 
 ---
@@ -445,7 +445,7 @@ and pick **CRM object** under *Selectors*. Set:
 **5c.** Add the module's other fields (table below), with the **HubL variable name**
 exactly as listed.
 
-**5d.** Delete the sample code in each pane and paste in **all** of the repo file:
+**5d.** Delete the sample code in each pane and paste in **all** of the matching repo file (linked in the table below, column *Code to paste*):
 `module.html` into **module.html (HTML + HubL)**, `module.css` into **module.css**,
 `module.js` into **module.js**. If you'd rather paste fields than click them, open
 **Actions > Edit JSON** *(wording may differ)* on the fields list and paste in all of the
@@ -453,15 +453,15 @@ module's `fields.json`.
 
 **5e.** Turn on **Make available in templates and pages** and click **Publish changes**.
 
-| Module (repo folder) | Fetches | Other fields (name: type) | Shows |
-|---|---|---|---|
-| Free Class Date (`free-class-date.module`) | `free_class_date` | none | `Dates: Sep 17th, 2026` |
-| Free Class Date & Time (`free-class-date-and-time.module`) | `free_class_date`, `class_time` | none | `Sep 17th, 2026 @ 7pm EST` |
-| Free Class Calendar Button (`free-class-calendar-button.module`) | `add_event_id` | none | An *Add To Calendar* button to `addevent.com/event/<id>` |
-| Free Class Replay Video (`free-class-replay-video.module`) | `replay_video_embed_code` | none | The replay embed at 16:9 |
-| Watch Page Counter (`watch-page-counter.module`) | `event_start_date_and_time` | `form_selector`: text · `hide_selector`: text · `offset_minutes`: number | Days/Hours/Minutes/Seconds to the start; at zero hides and reveals page parts |
-| Replay Countdown (`replay-countdown.module`) | `old_class_date`, `class_time`, `event_start_date_and_time`, `registration_page_url` | the three above, plus `force_open`: boolean · `forced_hide_selector`: text | Time left in the 72-hour replay window; at zero closes the replay and redirects |
-| Redirect Reg Form (`redirect-reg-form.module`) | `event_start_date_and_time`, `watch_now_youtube_link` | `button_label`: text · `confirmation_url`: text · `start_seconds`: number (default 180) · `offset_minutes`: number · `form_guid`: text | Nothing visible. Routes the form after submit. |
+| Module | Code to paste | Fetches | Other fields (name: type) | Shows |
+|---|---|---|---|---|
+| Free Class Date | [`module.html`](modules/free-class-date.module/module.html) · [`fields.json`](modules/free-class-date.module/fields.json) · [`meta.json`](modules/free-class-date.module/meta.json) | `free_class_date` | none | `Dates: Sep 17th, 2026` |
+| Free Class Date & Time | [`module.html`](modules/free-class-date-and-time.module/module.html) · [`fields.json`](modules/free-class-date-and-time.module/fields.json) · [`meta.json`](modules/free-class-date-and-time.module/meta.json) | `free_class_date`, `class_time` | none | `Sep 17th, 2026 @ 7pm EST` |
+| Free Class Calendar Button | [`module.html`](modules/free-class-calendar-button.module/module.html) · [`module.css`](modules/free-class-calendar-button.module/module.css) · [`fields.json`](modules/free-class-calendar-button.module/fields.json) · [`meta.json`](modules/free-class-calendar-button.module/meta.json) | `add_event_id` | none | An *Add To Calendar* button to `addevent.com/event/<id>` |
+| Free Class Replay Video | [`module.html`](modules/free-class-replay-video.module/module.html) · [`module.css`](modules/free-class-replay-video.module/module.css) · [`fields.json`](modules/free-class-replay-video.module/fields.json) · [`meta.json`](modules/free-class-replay-video.module/meta.json) | `replay_video_embed_code` | none | The replay embed at 16:9 |
+| Watch Page Counter | [`module.html`](modules/watch-page-counter.module/module.html) · [`module.css`](modules/watch-page-counter.module/module.css) · [`fields.json`](modules/watch-page-counter.module/fields.json) · [`meta.json`](modules/watch-page-counter.module/meta.json) | `event_start_date_and_time` | `form_selector`: text · `hide_selector`: text · `offset_minutes`: number | Days/Hours/Minutes/Seconds to the start; at zero hides and reveals page parts |
+| Replay Countdown | [`module.html`](modules/replay-countdown.module/module.html) · [`module.css`](modules/replay-countdown.module/module.css) · [`fields.json`](modules/replay-countdown.module/fields.json) · [`meta.json`](modules/replay-countdown.module/meta.json) | `old_class_date`, `class_time`, `event_start_date_and_time`, `registration_page_url` | the three above, plus `force_open`: boolean · `forced_hide_selector`: text | Time left in the 72-hour replay window; at zero closes the replay and redirects |
+| Redirect Reg Form | [`module.html`](modules/redirect-reg-form.module/module.html) · [`module.css`](modules/redirect-reg-form.module/module.css) · [`module.js`](modules/redirect-reg-form.module/module.js) · [`fields.json`](modules/redirect-reg-form.module/fields.json) · [`meta.json`](modules/redirect-reg-form.module/meta.json) | `event_start_date_and_time`, `watch_now_youtube_link` | `button_label`: text · `confirmation_url`: text · `start_seconds`: number (default 180) · `offset_minutes`: number · `form_guid`: text | Nothing visible. Routes the form after submit. |
 
 > ⚠️ **After you add a property to *Properties to fetch*, re-select the record** in
 > every page that already uses the module. Pages keep the old fetch list until you do.
@@ -814,7 +814,7 @@ registration**.
    |---|---|
    | `event_start_date_and_time` | `7. Event Start Date and Time` (**Active Topic A Config**) |
 
-4. Delete the sample code and paste in **all** of `workflow-actions/late-registration-check.js`.
+4. Delete the sample code and paste in **all** of [`workflow-actions/late-registration-check.js`](workflow-actions/late-registration-check.js).
 5. **Data outputs** (*"Outputs must be defined in both the code and the data outputs form"*):
 
    | Output | Type |
@@ -855,7 +855,7 @@ the default `Not Registered Late`.
    | `lastname` | `Last Name` (Enrolled contact) |
    | `phone` | `Phone Number` (Enrolled contact) |
 
-3. Paste in **all** of `workflow-actions/submit-attended-form.js`, then set
+3. Paste in **all** of [`workflow-actions/submit-attended-form.js`](workflow-actions/submit-attended-form.js), then set
    `PORTAL_ID` (your Hub ID) and `FORM_GUID` (**this topic's Attended form**).
 4. **Data outputs**: `submitted` Boolean, `reason` String.
 5. Don't **Test** this one on a real contact unless you want them recorded as attended.
@@ -1007,7 +1007,7 @@ Session label from Class Date + Class Topic`, **Secrets** `CLASS_SESSION_WRITE_T
 | `class_topic` | `Class Topic` (Enrolled class registration) |
 | `event_start_date_and_time` | Optional: `7. Event Start Date and Time` from an associated configuration record, if you associate them (Step 2c) |
 
-Paste in **all** of `workflow-actions/class-session-label.js`, set `OBJECT_TYPE` to your
+Paste in **all** of [`workflow-actions/class-session-label.js`](workflow-actions/class-session-label.js), set `OBJECT_TYPE` to your
 Class Registrations object type id, and **edit the topic rules** (the three `if` lines)
 to match your topics. **Data outputs**: `class_session` String.
 
