@@ -1,0 +1,13 @@
+{#
+  Free Class Date -- module.html
+  Author:  Jibril Sulaiman
+  Date:    2026-09 (published 2026-10-01)
+  Deploy:  Design Manager > your module "Free Class Date" > HTML + HubL pane
+  What:    Prints "Dates: <4. Free Class Date>" from the configuration record picked
+           in the module's CRM object field.
+  Why:     The HubSpot stand-in for a GHL custom value in body copy: change the
+           record once and every page using this module updates.
+#}
+{% if module.crmobject_field and module.crmobject_field.properties.free_class_date %}
+  <p class="free-class-date {{ module.extra_classes }}">Dates: {{ module.crmobject_field.properties.free_class_date }}</p>
+{% endif %}

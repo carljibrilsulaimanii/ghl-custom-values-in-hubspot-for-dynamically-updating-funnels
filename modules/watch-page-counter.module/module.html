@@ -1,0 +1,173 @@
+{#
+  ============================================================================
+  Watch Page Counter -- module.html
+  Author:    Jibril Sulaiman
+  Date:      2026-09-11 (published 2026-10-01)
+
+  Deploy to: Design Manager > your module "Watch Page Counter" > HTML + HubL pane.
+             Paste this whole file.
+
+  WHAT IT DOES
+    Counts down to the configuration record's 7. Event Start Date and Time
+    (minus the offset). While the clock is running the page is in its
+    "waiting" state; the moment it hits zero the page flips to "live":
+      - every selector in "Unhide While Active / Hide at 0" is hidden
+        (the form, waiting copy, etc.)
+      - every selector in "Hide While Active / Unhide at 0" is revealed
+        (join link, replay, etc.)
+      - the clock itself hides
+
+  WHY IT IS BUILT THIS WAY
+    An earlier build pasted the two selector fields straight into CSS. The
+    fields hold raw HubSpot ids, so the published page shipped rules like:
+
+        html:not(.fc-open) hs_cos_wrapper_module_1234567890123 { display:none }
+
+    Those are TYPE selectors, not ID selectors - there is no
+    <hs_cos_wrapper_module_1234567890123> element, so they matched nothing.
+    The form never hid and the join link never appeared. This build:
+      1. normalises a bare id to #id, so you can paste
+         hs_form_target_widget_1234567890123-100 exactly as HubSpot prints it,
+      2. accepts a comma separated list and real CSS selectors
+         (anything starting with # . [ : * or containing a space is left alone),
+      3. scopes the state class per module instance, so two countdowns on one
+         page no longer toggle each other,
+      4. sets the state class synchronously, above the form in the DOM, so a
+         late visitor never sees the form flash before it hides.
+  ============================================================================
+#}
+
+{# --- turns one token into a valid selector: bare id -> #id, everything else
+       (#id, .class, [attr], :is(), or any multi-part selector) passed through #}
+{% macro fc_rules(raw_list, prefix) %}
+  {%- for part in raw_list|split(',') -%}
+    {%- set token = part|trim -%}
+    {%- if token -%}
+{{ prefix }} {{ token|regex_replace('^([A-Za-z_])', '#$1') }} { display: none !important; }
+    {%- endif -%}
+  {%- endfor -%}
+{% endmacro %}
+
+{% set fc_uid    = name|regex_replace('[^A-Za-z0-9_-]', '') %}
+{% set fc_start  = module.crmobject_field.properties.event_start_date_and_time %}
+{% set fc_offset = module.offset_minutes|default(0, true)|int %}
+{% set fc_show   = module.form_selector|default('', true)|trim %}
+{% set fc_hide   = module.hide_selector|default('', true)|trim %}
+
+{% if fc_start %}
+  {% set fc_start_ms = fc_start|unixtimestamp %}
+  {% set fc_target   = fc_start_ms - (fc_offset * 60000) %}
+
+<style>
+{% if fc_show %}{{ fc_rules(fc_show, 'html:not(.fc-open-' ~ fc_uid ~ ')') }}{% endif %}
+{% if fc_hide %}{{ fc_rules(fc_hide, 'html.fc-open-' ~ fc_uid) }}{% endif %}
+html.fc-open-{{ fc_uid }} #fc-countdown-{{ fc_uid }} { display: none !important; }
+</style>
+
+{# Runs the instant the browser parses it - i.e. before the rows below this
+   module exist - so the "live" state is already set for a late visitor and
+   nothing flashes. #}
+<script>
+(function () {
+  if (Date.now() >= {{ fc_target }}) {
+    document.documentElement.classList.add('fc-open-{{ fc_uid }}');
+  }
+})();
+</script>
+
+<time class="fc-countdown"
+      id="fc-countdown-{{ fc_uid }}"
+      data-fc-target="{{ fc_target }}">
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="days">0</span>
+    <span class="fc-countdown__label">Days</span>
+  </div>
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="hours">00</span>
+    <span class="fc-countdown__label">Hours</span>
+  </div>
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="minutes">00</span>
+    <span class="fc-countdown__label">Minutes</span>
+  </div>
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="seconds">00</span>
+    <span class="fc-countdown__label">Seconds</span>
+  </div>
+</time>
+
+<script>
+(function () {
+  var uid = '{{ fc_uid }}';
+  var el  = document.getElementById('fc-countdown-' + uid);
+  if (!el) { return; }
+
+  var target = parseInt(el.getAttribute('data-fc-target'), 10);
+  if (!target) { return; }
+
+  var out = {
+    days:    el.querySelector('[data-fc="days"]'),
+    hours:   el.querySelector('[data-fc="hours"]'),
+    minutes: el.querySelector('[data-fc="minutes"]'),
+    seconds: el.querySelector('[data-fc="seconds"]')
+  };
+
+  var timer  = null;
+  var opened = false;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function open() {
+    if (opened) { return; }
+    opened = true;
+    if (timer) { clearTimeout(timer); timer = null; }
+
+    out.days.textContent    = '0';
+    out.hours.textContent   = '00';
+    out.minutes.textContent = '00';
+    out.seconds.textContent = '00';
+
+    document.documentElement.classList.add('fc-open-' + uid);
+    el.classList.add('fc-countdown--ended');
+
+    // Anything else on the page that needs to react can listen for this.
+    try {
+      document.dispatchEvent(new CustomEvent('fc:open', {
+        detail: { uid: uid, target: target }
+      }));
+    } catch (e) {}
+  }
+
+  function tick() {
+    var diff = target - Date.now();
+    if (diff <= 0) { open(); return; }
+
+    var s = Math.floor(diff / 1000);
+    out.days.textContent    = Math.floor(s / 86400);
+    out.hours.textContent   = pad(Math.floor((s % 86400) / 3600));
+    out.minutes.textContent = pad(Math.floor((s % 3600) / 60));
+    out.seconds.textContent = pad(s % 60);
+
+    // Re-align to the wall clock each pass so a throttled background tab
+    // does not drift the display.
+    timer = setTimeout(tick, 1000 - (Date.now() % 1000));
+  }
+
+  // A backgrounded tab stops firing timers; catch up as soon as it is shown.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !opened) {
+      if (timer) { clearTimeout(timer); }
+      tick();
+    }
+  });
+
+  tick();
+})();
+</script>
+
+{% elif is_in_editor %}
+<p style="padding:12px;border:1px dashed #d0d0d0;border-radius:6px;color:#7c98b6;text-align:center;font:14px/1.4 system-ui,sans-serif;">
+  Countdown is not rendering: pick a CRM object that has an
+  <strong>Event Start Date and Time</strong> value.
+</p>
+{% endif %}

@@ -1,0 +1,20 @@
+/* Free Class Replay Video -- module.css
+   Author: Jibril Sulaiman · 2026-09 (published 2026-10-01)
+   Deploy: Design Manager > "Free Class Replay Video" > CSS pane
+   What:   Makes the pasted iframe fill the column at 16:9, centred.
+   Why:    Embed codes arrive with fixed widths; this keeps them responsive. */
+
+.dnd-module .free-class-replay iframe {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+.free-class-replay {
+  text-align: center;
+}
+
+.free-class-replay iframe {
+  margin-left: auto;
+  margin-right: auto;
+}

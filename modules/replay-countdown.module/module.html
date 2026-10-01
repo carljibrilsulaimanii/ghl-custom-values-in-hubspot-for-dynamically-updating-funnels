@@ -1,0 +1,256 @@
+{#
+  ============================================================================
+  Replay Countdown -- module.html
+  Author:    Jibril Sulaiman
+  Date:      2026-09-30 (published 2026-10-01)
+
+  Deploy to: Design Manager > "Replay Countdown" (start it as a clone of
+             "Watch Page Counter", then replace module.html, fields.json and
+             module.css with this module's files).
+
+  In use on: the replay sign-in page.
+
+  WHAT IT DOES
+    Same show/hide engine as Watch Page Counter, with two differences.
+
+    1. The clock targets the end of the replay window instead of the class
+       start: class time on old_class_date + 72 hours (minus Offset minutes).
+       While the clock runs the replay is open; at zero it closes:
+         - "Unhide While Active / Hide at 0" selectors hide (the form)
+         - "Hide While Active / Unhide at 0" selectors show (expired copy)
+         - the clock hides
+         - if the config has a Registration Page URL, the visitor is sent
+           there (query string carried; never in the editor or a preview)
+
+    2. "Ignore countdown - keep replay open" (force_open) keeps the page in
+       its open state no matter what the clock says, before or after zero:
+       the form stays visible and only the clock hides. Set it on every
+       instance on the page. "Selector - Hide when toggle is on" hides extra
+       elements in that state (e.g. the "Replay Expires In:" label).
+
+  TIME OF DAY
+    old_class_date is a *date* property: HubSpot stores it as midnight UTC,
+    with no time. The module anchors it to the class time in New York:
+      - hour from the config's class_time ("7pm EST", "12pm EST"; minutes
+        ignored), falling back to 7pm if it can't be read,
+      - EDT/EST worked out for that date, so nothing changes by hand on the
+        DST switch.
+    Offset minutes is only a fine-tune on top (positive = earlier,
+    negative = later). Leave it at 0.
+
+  WHY THESE CHOICES
+    - crmobject_field fetches old_class_date. Fetching only
+      event_start_date_and_time left the date empty and the clock blank.
+    - force_open keeps the open state (form visible) rather than forcing the
+      zero state, which hid the form on the replay page.
+    - Class time + New York DST are computed in HubL, replacing a manual
+      minutes-offset convention that broke on every DST switch.
+    - At zero the visitor is redirected to the config's registration_page_url.
+      Forced instances never redirect.
+  ============================================================================
+#}
+
+{# --- turns one token into a valid selector: bare id -> #id, everything else
+       (#id, .class, [attr], :is(), or any multi-part selector) passed through #}
+{% macro fc_rules(raw_list, prefix) %}
+  {%- for part in raw_list|split(',') -%}
+    {%- set token = part|trim -%}
+    {%- if token -%}
+{{ prefix }} {{ token|regex_replace('^([A-Za-z_])', '#$1') }} { display: none !important; }
+    {%- endif -%}
+  {%- endfor -%}
+{% endmacro %}
+
+{% set fc_uid = name|regex_replace('[^A-Za-z0-9_-]', '') %}
+{% set fc_start = module.crmobject_field.properties.old_class_date %}
+{% set fc_offset = module.offset_minutes|default(0, true)|int %}
+{% set fc_show = module.form_selector|default('', true)|trim %}
+{% set fc_hide = module.hide_selector|default('', true)|trim %}
+{% set fc_force = module.force_open|default(false, true) %}
+{% set fc_forced_hide = module.forced_hide_selector|default('', true)|trim %}
+{% set fc_reg = module.crmobject_field.properties.registration_page_url|default('', true)|trim %}
+
+{# 72 hour replay window, in milliseconds. 72 * 60 * 60 * 1000 #}
+{% set fc_window_ms = 259200000 %}
+
+{% if fc_start %}
+  {# Class hour (0-23) from class_time, e.g. "7pm EST" -> 19. Default 7pm. #}
+  {% set fc_time_raw = module.crmobject_field.properties.class_time|default('', true)|lower %}
+  {% set fc_hour_txt = fc_time_raw|regex_replace('^[^0-9]*([0-9]{1,2}).*$', '$1') %}
+  {% if fc_time_raw and fc_hour_txt|int(-1) >= 1 and fc_hour_txt|int(-1) <= 12 %}
+    {% set fc_hour = fc_hour_txt|int %}
+    {% if 'pm' in fc_time_raw and fc_hour < 12 %}{% set fc_hour = fc_hour + 12 %}{% endif %}
+    {% if 'am' in fc_time_raw and fc_hour == 12 %}{% set fc_hour = 0 %}{% endif %}
+  {% else %}
+    {% set fc_hour = 19 %}
+  {% endif %}
+
+  {# old_class_date arrives as midnight UTC. Ask New York for its UTC offset
+     near class time on that date: "-0400" (EDT) or "-0500" (EST). #}
+  {% set fc_day_ms = fc_start|unixtimestamp %}
+  {% set fc_probe = fc_day_ms + ((fc_hour + 5) * 3600000) %}
+  {% set fc_tz_h = fc_probe|format_datetime('Z', 'America/New_York')|regex_replace('^[+-]0?([0-9]{1,2})[0-9]{2}$', '$1')|int(5) %}
+  {% set fc_class_ms = fc_day_ms + ((fc_hour + fc_tz_h) * 3600000) %}
+  {% set fc_target = fc_class_ms + fc_window_ms - (fc_offset * 60000) %}
+
+<style>
+{% if fc_force %}
+#fc-countdown-{{ fc_uid }} { display: none !important; }
+{% if fc_forced_hide %}{{ fc_rules(fc_forced_hide, 'html') }}{% endif %}
+{% else %}
+{% if fc_show %}{{ fc_rules(fc_show, 'html:not(.fc-open-' ~ fc_uid ~ ')') }}{% endif %}
+{% if fc_hide %}{{ fc_rules(fc_hide, 'html.fc-open-' ~ fc_uid) }}{% endif %}
+html.fc-open-{{ fc_uid }} #fc-countdown-{{ fc_uid }} { display: none !important; }
+{% endif %}
+</style>
+
+{% unless fc_force %}
+{# Runs the instant the browser parses it - i.e. before the rows below this
+   module exist - so the closed state is already set for a late visitor and
+   nothing flashes. #}
+<script>
+(function () {
+  // Replay over -> send the visitor to the config's Registration Page URL,
+  // carrying this page's query string (utm_*). Held in the editor and in
+  // previews (add rc_redirect_test=1 to a preview URL to let it run).
+  var REG = '{{ fc_reg|escapejs }}';
+  var SKIP = ['hs_preview', 'hsCacheBuster', 'hsDebug', 'hsPreviewerApiKey', 'rc_redirect_test'];
+
+  function trimPath(p) { return (p || '/').replace(/\/+$/, '') || '/'; }
+
+  function go() {
+    if (!REG) { return; }
+    var raw = /^[a-z][a-z0-9+.\-]*:\/\//i.test(REG) ? REG : 'https://' + REG.replace(/^\/+/, '');
+    var dest, here;
+    try { dest = new URL(raw); here = new URL(window.location.href); } catch (e) { return; }
+
+    here.searchParams.forEach(function (value, key) {
+      if (SKIP.indexOf(key) !== -1) { return; }
+      if (!dest.searchParams.has(key)) { dest.searchParams.append(key, value); }
+    });
+    var target = dest.toString();
+
+    if (dest.origin === here.origin && trimPath(dest.pathname) === trimPath(here.pathname)) { return; }
+
+    if (window.top !== window.self ||
+        here.pathname.indexOf('/_hcms/preview/') === 0 ||
+        (here.searchParams.has('hs_preview') && !here.searchParams.has('rc_redirect_test'))) {
+      document.documentElement.setAttribute('data-rc-redirect-held', target);
+      return;
+    }
+    window.location.replace(target);
+  }
+
+  window.fcReplayRedirect = window.fcReplayRedirect || {};
+  window.fcReplayRedirect['{{ fc_uid }}'] = go;
+
+  if (Date.now() >= {{ fc_target }}) {
+    document.documentElement.classList.add('fc-open-{{ fc_uid }}');
+    go();
+  }
+})();
+</script>
+{% endunless %}
+
+<time class="fc-countdown"
+      id="fc-countdown-{{ fc_uid }}"
+      data-fc-target="{{ fc_target }}">
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="days">0</span>
+    <span class="fc-countdown__label">Days</span>
+  </div>
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="hours">00</span>
+    <span class="fc-countdown__label">Hours</span>
+  </div>
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="minutes">00</span>
+    <span class="fc-countdown__label">Minutes</span>
+  </div>
+  <div class="fc-countdown__unit">
+    <span class="fc-countdown__value" data-fc="seconds">00</span>
+    <span class="fc-countdown__label">Seconds</span>
+  </div>
+</time>
+
+{% unless fc_force %}
+<script>
+(function () {
+  var uid = '{{ fc_uid }}';
+  var el = document.getElementById('fc-countdown-' + uid);
+  if (!el) { return; }
+
+  var target = parseInt(el.getAttribute('data-fc-target'), 10);
+  if (!target) { return; }
+
+  var out = {
+    days: el.querySelector('[data-fc="days"]'),
+    hours: el.querySelector('[data-fc="hours"]'),
+    minutes: el.querySelector('[data-fc="minutes"]'),
+    seconds: el.querySelector('[data-fc="seconds"]')
+  };
+
+  var timer = null;
+  var opened = false;
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function open() {
+    if (opened) { return; }
+    opened = true;
+    if (timer) { clearTimeout(timer); timer = null; }
+
+    out.days.textContent = '0';
+    out.hours.textContent = '00';
+    out.minutes.textContent = '00';
+    out.seconds.textContent = '00';
+
+    document.documentElement.classList.add('fc-open-' + uid);
+    el.classList.add('fc-countdown--ended');
+
+    // Anything else on the page that needs to react can listen for this.
+    try {
+      document.dispatchEvent(new CustomEvent('fc:open', {
+        detail: { uid: uid, target: target }
+      }));
+    } catch (e) {}
+
+    // Clock ran out while the visitor was on the page.
+    var go = window.fcReplayRedirect && window.fcReplayRedirect[uid];
+    if (go) { go(); }
+  }
+
+  function tick() {
+    var diff = target - Date.now();
+    if (diff <= 0) { open(); return; }
+
+    var s = Math.floor(diff / 1000);
+    out.days.textContent = Math.floor(s / 86400);
+    out.hours.textContent = pad(Math.floor((s % 86400) / 3600));
+    out.minutes.textContent = pad(Math.floor((s % 3600) / 60));
+    out.seconds.textContent = pad(s % 60);
+
+    // Re-align to the wall clock each pass so a throttled background tab
+    // does not drift the display.
+    timer = setTimeout(tick, 1000 - (Date.now() % 1000));
+  }
+
+  // A backgrounded tab stops firing timers; catch up as soon as it is shown.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !opened) {
+      if (timer) { clearTimeout(timer); }
+      tick();
+    }
+  });
+
+  tick();
+})();
+</script>
+{% endunless %}
+
+{% elif is_in_editor %}
+<p style="padding:12px;border:1px dashed #d0d0d0;border-radius:6px;color:#7c98b6;text-align:center;font:14px/1.4 system-ui,sans-serif;">
+  Replay Countdown is not rendering: pick a CRM object that has an
+  <strong>Old Class Date</strong> value.
+</p>
+{% endif %}

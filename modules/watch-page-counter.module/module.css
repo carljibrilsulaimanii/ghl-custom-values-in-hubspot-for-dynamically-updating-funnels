@@ -1,0 +1,71 @@
+/* ==========================================================================
+   Watch Page Counter -- module.css
+   Author:    Jibril Sulaiman
+   Date:      2026-09-11 (published 2026-10-01)
+   Deploy to: Design Manager > your module "Watch Page Counter" > CSS pane.
+
+   WHAT:  Styles the four-unit clock and its hidden-at-zero state. Change the
+          five --fc-countdown-* variables to match your brand.
+   WHY:   The !important on .fc-countdown--ended beats the display:flex on
+          .fc-countdown regardless of rule order after HubSpot concatenates
+          module CSS.
+   ========================================================================== */
+
+.fc-countdown {
+  --fc-countdown-border-thickness: 0px;
+  --fc-countdown-border-color: #FFFFFF;
+  --fc-countdown-text-color: #10AE6C;
+  --fc-countdown-fill-color: #FFFFFF;
+  --fc-countdown-label-color: #323134;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--hsElevate--spacing--12, 12px);
+}
+
+.fc-countdown__unit {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 200px;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hsElevate--spacing--8, 8px);
+}
+
+.fc-countdown__value {
+  width: 100%;
+  padding: var(--hsElevate--spacing--16, 16px) var(--hsElevate--spacing--12, 12px);
+  border: var(--fc-countdown-border-thickness) solid var(--fc-countdown-border-color);
+  border-radius: var(--hsElevate-rounded);
+  background-color: var(--fc-countdown-fill-color);
+  color: var(--fc-countdown-text-color);
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-countdown__label {
+  width: 100%;
+  color: var(--fc-countdown-label-color);
+  font-size: clamp(.75rem, 1vw + .5rem, 1.25rem);
+  text-align: center;
+}
+
+/* Set by the module's own JS when the clock reaches zero. */
+.fc-countdown--ended {
+  display: none !important;
+}
+
+@media (min-width: 767px) {
+  .fc-countdown {
+    gap: var(--hsElevate--spacing--20, 20px);
+  }
+
+  .fc-countdown__value {
+    padding: var(--hsElevate--spacing--22, 22px) var(--hsElevate--spacing--24, 24px);
+  }
+}

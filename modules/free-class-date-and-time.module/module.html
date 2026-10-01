@@ -1,0 +1,15 @@
+{#
+  Free Class Date & Time -- module.html
+  Author:  Jibril Sulaiman
+  Date:    2026-09 (published 2026-10-01)
+  Deploy:  Design Manager > your module "Free Class Date & Time" > HTML + HubL pane
+  What:    Prints "<4. Free Class Date> @ <6. Free Class Time>" from the configuration
+           record picked in the module's CRM object field.
+  Why:     Dates and times on the page come from one record, so moving the class to
+           a new date is one edit, not a page-by-page hunt.
+#}
+{% set date = module.crmobject_field.properties.free_class_date %}
+{% set time = module.crmobject_field.properties.class_time %}
+{% if date %}
+  <p class="free-class-datetime {{ module.extra_classes }}">{{ date }}{% if time %} {{ module.separator|default('@', true) }} {{ time }}{% endif %}</p>
+{% endif %}

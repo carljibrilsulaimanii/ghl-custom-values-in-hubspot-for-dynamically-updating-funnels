@@ -1,0 +1,16 @@
+{#
+  Free Class Calendar Button -- module.html
+  Author:  Jibril Sulaiman
+  Date:    2026-09 (published 2026-10-01)
+  Deploy:  Design Manager > your module "Free Class Calendar Button" > HTML + HubL pane
+  What:    "Add To Calendar" button that opens the AddEvent event whose id is stored on
+           the configuration record ("Add Event ID").
+  Why:     Each class has its own calendar event; the id lives on the record so the
+           button follows the class without editing the page.
+#}
+{% set event_id = module.crmobject_field.properties.add_event_id %}
+{% if event_id %}
+  <a href="https://www.addevent.com/event/{{ event_id }}"
+     class="free-class-calendar-link hs-elevate-button hs-elevate-button--primary {{ module.extra_classes }}"
+     target="_blank" rel="noopener">{{ module.link_text|default('Add To Calendar', true) }}</a>
+{% endif %}

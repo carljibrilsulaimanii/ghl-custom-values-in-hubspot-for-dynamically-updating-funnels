@@ -1,0 +1,23 @@
+{
+  "label": "Free Class Replay Video",
+  "global": false,
+  "is_available_for_new_content": true,
+  "content_types": [
+    "LANDING_PAGE",
+    "SITE_PAGE"
+  ],
+  "host_template_types": [
+    "PAGE",
+    "BLOG_LISTING",
+    "BLOG_POST"
+  ],
+  "categories": [
+    "TEXT"
+  ],
+  "content_tags": [
+    {
+      "name": "TEXT",
+      "source": "USER"
+    }
+  ]
+}

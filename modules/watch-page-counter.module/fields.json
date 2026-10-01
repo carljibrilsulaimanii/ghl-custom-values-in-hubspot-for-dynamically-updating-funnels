@@ -1,0 +1,45 @@
+[ {
+  "id" : "9c509993-b01e-03ac-6d03-e5a4e475449b",
+  "name" : "crmobject_field",
+  "label" : "CRM object",
+  "required" : false,
+  "locked" : false,
+  "object_type" : "p_free_class_configurations",
+  "properties_to_fetch" : [ "event_start_date_and_time" ],
+  "display_properties" : [ "class_type", "event_start_date_and_time" ],
+  "type" : "crmobject",
+  "display_width" : null,
+  "default" : {
+    "id" : null
+  }
+}, {
+  "id" : "7ec75272-bf0c-9eea-ca67-de8c45fd1f95",
+  "name" : "form_selector",
+  "label" : "Selector - Hide While Active / Unhide at 0",
+  "required" : false,
+  "locked" : false,
+  "allow_new_line" : false,
+  "type" : "text",
+  "display_width" : null,
+  "default" : ""
+}, {
+  "id" : "6bf27caf-3fb5-cf56-60e0-732f87073e19",
+  "name" : "hide_selector",
+  "label" : "Selector - Unhide While Active / Hide at 0",
+  "required" : false,
+  "locked" : false,
+  "allow_new_line" : false,
+  "type" : "text",
+  "display_width" : null,
+  "default" : ""
+}, {
+  "id" : "601a15e9-ea1c-f8c7-5966-226586410d5d",
+  "name" : "offset_minutes",
+  "label" : "Offset minutes",
+  "required" : false,
+  "locked" : false,
+  "display" : "text",
+  "step" : 1,
+  "type" : "number",
+  "display_width" : null
+} ]

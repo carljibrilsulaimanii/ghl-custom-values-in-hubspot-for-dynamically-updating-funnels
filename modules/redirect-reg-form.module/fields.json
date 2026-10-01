@@ -1,0 +1,62 @@
+[ {
+  "id" : "7c4278a7-f45e-d464-fcbe-f7e74eda47e0",
+  "name" : "button_label",
+  "label" : "Button Label",
+  "required" : false,
+  "locked" : false,
+  "allow_new_line" : false,
+  "type" : "text",
+  "display_width" : null,
+  "default" : "Continue to Payment"
+}, {
+  "id" : "6507d2e6-1608-7562-6826-24cce42b5137",
+  "name" : "confirmation_url",
+  "label" : "confirmation_url",
+  "required" : false,
+  "locked" : false,
+  "allow_new_line" : false,
+  "type" : "text",
+  "display_width" : null
+}, {
+  "id" : "0438348f-7ba9-986b-4e60-e32b859c2f27",
+  "name" : "class_config",
+  "label" : "class_config",
+  "required" : false,
+  "locked" : false,
+  "object_type" : "p_free_class_configurations",
+  "properties_to_fetch" : [ "event_start_date_and_time", "watch_now_youtube_link" ],
+  "display_properties" : [ "class_type", "free_class_date" ],
+  "display_format" : "%0 %1",
+  "type" : "crmobject",
+  "display_width" : null
+}, {
+  "id" : "e5eddb39-e7c9-27c1-ee5d-d494869d9f15",
+  "name" : "start_seconds",
+  "label" : "start_seconds",
+  "required" : false,
+  "locked" : false,
+  "display" : "text",
+  "step" : 1,
+  "type" : "number",
+  "display_width" : null,
+  "default" : 180
+}, {
+  "id" : "d20949ea-4b80-ff88-3c4f-8124fbee2695",
+  "name" : "offset_minutes",
+  "label" : "offset_minutes",
+  "required" : false,
+  "locked" : false,
+  "display" : "text",
+  "step" : 1,
+  "type" : "number",
+  "display_width" : null
+}, {
+  "id" : "9f102a50-e269-354a-1d37-203a8c27294d",
+  "name" : "form_guid",
+  "label" : "form_guid",
+  "required" : false,
+  "locked" : false,
+  "allow_new_line" : false,
+  "type" : "text",
+  "display_width" : null
+} ]

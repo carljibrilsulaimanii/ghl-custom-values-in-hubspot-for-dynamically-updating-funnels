@@ -1,0 +1,15 @@
+[ {
+  "id" : "9c509993-b01e-03ac-6d03-e5a4e475449b",
+  "name" : "crmobject_field",
+  "label" : "CRM object",
+  "required" : false,
+  "locked" : false,
+  "object_type" : "p_free_class_configurations",
+  "properties_to_fetch" : [ "free_class_date" ],
+  "display_properties" : [ "class_type", "free_class_date" ],
+  "type" : "crmobject",
+  "display_width" : null,
+  "default" : {
+    "id" : null
+  }
+} ]

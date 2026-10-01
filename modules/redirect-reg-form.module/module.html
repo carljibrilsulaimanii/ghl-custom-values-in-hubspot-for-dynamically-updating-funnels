@@ -1,0 +1,48 @@
+{#
+  Redirect Reg Form (Free Class Live Router) -- module.html
+  Author:  Jibril Sulaiman
+  Date:    2026-09 (published 2026-10-01)
+  Deploy:  Design Manager > your module "Redirect Reg Form" > HTML + HubL pane.
+           Place it on the registration page, anywhere above or below the form.
+  What:    Renders nothing visible. Hands module.js the class start time and live
+           watch link from the configuration record, so a registration submitted
+           after the class has started goes straight to the live stream instead of
+           a "see you at 7pm" confirmation page.
+  Why:     Late registrants were landing on a confirmation page for a class that
+           was already running, and leaving.
+#}
+{% set start_iso = module.class_config.properties.event_start_date_and_time %}
+{% set watch_url = module.class_config.properties.watch_now_youtube_link|trim %}
+{% set missing = not start_iso or not watch_url %}
+
+{% if not missing %}
+<style>
+  /* The module renders nothing, but HubSpot's wrapper still occupies layout.
+     `html` prefix so this outranks the `#hs_cos_wrapper_… { display: block }`
+     rule the page editor writes whenever someone edits module spacing. */
+  html #hs_cos_wrapper_{{ name }} { display: none !important; }
+</style>
+{% endif %}
+
+<div class="fclr{% if missing %} fclr--warn{% endif %}" id="fclr-{{ name }}"
+     data-start="{% if start_iso %}{{ start_iso|unixtimestamp }}{% endif %}"
+     data-watch="{{ watch_url|escape }}"
+     data-seconds="{{ module.start_seconds|default(180, true) }}"
+     data-offset="{{ module.offset_minutes|default(0, true) }}"
+     data-confirm="{{ module.confirmation_url|trim|escape }}"
+     data-button-label="{{ module.button_label|trim|escape }}"
+     data-form="{{ module.form_guid|trim|escape }}">
+
+  {% if missing %}
+  <div class="fclr__warn">
+    <strong>Free Class Live Router is not configured.</strong>
+    {% if not start_iso %}
+      The selected class record has no <em>7. Event Start Date and Time</em>.
+    {% endif %}
+    {% if not watch_url %}
+      The selected class record has no <em>1. Watch Now YouTube Link</em>.
+    {% endif %}
+    Late registrants will fall through to the confirmation page.
+  </div>
+  {% endif %}
+</div>

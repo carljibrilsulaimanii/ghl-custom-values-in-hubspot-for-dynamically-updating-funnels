@@ -1,0 +1,14 @@
+{#
+  Free Class Replay Video -- module.html
+  Author:  Jibril Sulaiman
+  Date:    2026-09 (published 2026-10-01)
+  Deploy:  Design Manager > your module "Free Class Replay Video" > HTML + HubL pane
+  What:    Renders the record's "3. Replay Video Embed Code" (the full <iframe> embed
+           your streaming tool gives you) on the replay page.
+  Why:     The replay changes every class; pasting it on the record instead of the
+           page means the page itself never needs editing.
+#}
+{% set embed = module.crmobject_field.properties.replay_video_embed_code %}
+{% if embed %}
+  <div class="free-class-replay {{ module.extra_classes }}">{{ embed|safe }}</div>
+{% endif %}

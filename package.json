@@ -1,0 +1,11 @@
+{
+  "name": "ghl-custom-values-in-hubspot-for-dynamically-updating-funnels",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A HubSpot configuration object that replaces GoHighLevel custom values, plus the page modules and Registration / Attended / Replay workflows that read it.",
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "engines": { "node": ">=20" }
+}
