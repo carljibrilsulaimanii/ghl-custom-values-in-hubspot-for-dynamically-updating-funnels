@@ -312,6 +312,8 @@ node scripts/create-schema.mjs
 node scripts/create-schema.mjs --apply
 ```
 
+Runs [`scripts/create-schema.mjs`](scripts/create-schema.mjs).
+
 The dry run prints `would create object Free Class Configuration with 28 properties` and
 the same for Class Registrations. After `--apply` it prints each object's **object type
 id** (`2-12345678`). Write both down: Step 11 needs the Class Registrations one.
@@ -1170,7 +1172,7 @@ About 30 minutes.
 4. In each of the three workflows: add the new forms to the trigger, add a branch, add
    an **Active &lt;Topic&gt; Config** data source, and add a **Create record** mapped as in
    Section 3. In Registration, also add a copy of 8i-8k with the new Attended form's GUID.
-5. Add the topic's rule to `class-session-label.js` (Step 11).
+5. Add the topic's rule to [`class-session-label.js`](workflow-actions/class-session-label.js) (Step 11).
 6. Build the pages from an existing topic's pages and re-pick the record in every
    module's **CRM object** field.
 
