@@ -157,7 +157,7 @@ flipped to next month is still credited to the session the person actually watch
 | [`workflow-actions/late-registration-check.js`](workflow-actions/late-registration-check.js) | Custom code: did this person register after the class started? | Registration workflow (Step 8) |
 | [`workflow-actions/submit-attended-form.js`](workflow-actions/submit-attended-form.js) | Custom code: marks late registrants as attended | Registration workflow (Step 8) |
 | [`workflow-actions/class-session-label.js`](workflow-actions/class-session-label.js) | Custom code: one "2026-09-17 - Topic" dropdown value per session, for reports | Class Session workflow (Step 11) |
-| `test/` | 23 tests: the three actions run unchanged, plus a check that every module only reads properties the schema defines | `npm test` |
+| [`test/`](test/) | 23 tests: the three actions run unchanged, plus a check that every module only reads properties the schema defines | `npm test` |
 
 ---
 
@@ -302,7 +302,7 @@ only organize the sidebar; they don't change behavior.
 1. Create a service key: **Settings > Integrations > Service Keys** *(wording may
    differ)* **> Create service key**. Give it the scopes `crm.schemas.custom.read`,
    `crm.schemas.custom.write`, `crm.schemas.contacts.write` and `crm.objects.contacts.read`.
-2. Edit `schema/schema.mjs`: replace the `Topic A` / `Topic B` options in `class_type`,
+2. Edit [`schema/schema.mjs`](schema/schema.mjs): replace the `Topic A` / `Topic B` options in `class_type`,
    `class_topic`, `free_class_type` and `fc_current_class_topic` with your topics.
 3. Dry run, then apply (PowerShell):
 
