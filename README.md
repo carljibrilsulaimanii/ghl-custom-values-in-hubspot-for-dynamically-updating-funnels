@@ -147,13 +147,13 @@ flipped to next month is still credited to the session the person actually watch
 |---|---|---|
 | [`schema/schema.mjs`](schema/schema.mjs) | Every property on both objects and the contact properties, with exact internal names | Read by the script; the tables in Steps 1-3 |
 | [`scripts/create-schema.mjs`](scripts/create-schema.mjs) | Creates both objects and all properties through the API (dry run by default) | Your computer (Step 1, Route B) |
-| [`modules/free-class-date.module/`](modules/free-class-date.module/)<br>[`module.html`](modules/free-class-date.module/module.html) · [`fields.json`](modules/free-class-date.module/fields.json) · [`meta.json`](modules/free-class-date.module/meta.json) | "Dates: Sep 17th, 2026" | Design Manager (Step 5) |
-| [`modules/free-class-date-and-time.module/`](modules/free-class-date-and-time.module/)<br>[`module.html`](modules/free-class-date-and-time.module/module.html) · [`fields.json`](modules/free-class-date-and-time.module/fields.json) · [`meta.json`](modules/free-class-date-and-time.module/meta.json) | "Sep 17th, 2026 @ 7pm EST" | Design Manager |
-| [`modules/free-class-calendar-button.module/`](modules/free-class-calendar-button.module/)<br>[`module.html`](modules/free-class-calendar-button.module/module.html) · [`module.css`](modules/free-class-calendar-button.module/module.css) · [`fields.json`](modules/free-class-calendar-button.module/fields.json) · [`meta.json`](modules/free-class-calendar-button.module/meta.json) | Add To Calendar button from the record's AddEvent id | Design Manager |
-| [`modules/free-class-replay-video.module/`](modules/free-class-replay-video.module/)<br>[`module.html`](modules/free-class-replay-video.module/module.html) · [`module.css`](modules/free-class-replay-video.module/module.css) · [`fields.json`](modules/free-class-replay-video.module/fields.json) · [`meta.json`](modules/free-class-replay-video.module/meta.json) | The record's replay embed, responsive | Design Manager |
-| [`modules/watch-page-counter.module/`](modules/watch-page-counter.module/)<br>[`module.html`](modules/watch-page-counter.module/module.html) · [`module.css`](modules/watch-page-counter.module/module.css) · [`fields.json`](modules/watch-page-counter.module/fields.json) · [`meta.json`](modules/watch-page-counter.module/meta.json) | Countdown to the class start; hides/shows page parts at zero | Design Manager |
-| [`modules/replay-countdown.module/`](modules/replay-countdown.module/)<br>[`module.html`](modules/replay-countdown.module/module.html) · [`module.css`](modules/replay-countdown.module/module.css) · [`fields.json`](modules/replay-countdown.module/fields.json) · [`meta.json`](modules/replay-countdown.module/meta.json) | Countdown to the end of the 72-hour replay window; redirects when it closes | Design Manager |
-| [`modules/redirect-reg-form.module/`](modules/redirect-reg-form.module/)<br>[`module.html`](modules/redirect-reg-form.module/module.html) · [`module.css`](modules/redirect-reg-form.module/module.css) · [`module.js`](modules/redirect-reg-form.module/module.js) · [`fields.json`](modules/redirect-reg-form.module/fields.json) · [`meta.json`](modules/redirect-reg-form.module/meta.json) | Sends late registrants to the live stream instead of the confirmation page | Design Manager |
+| [`modules/free-class-date.module/`](modules/free-class-date.module/) | "Dates: Sep 17th, 2026" | Design Manager (Step 5) |
+| [`modules/free-class-date-and-time.module/`](modules/free-class-date-and-time.module/) | "Sep 17th, 2026 @ 7pm EST" | Design Manager |
+| [`modules/free-class-calendar-button.module/`](modules/free-class-calendar-button.module/) | Add To Calendar button from the record's AddEvent id | Design Manager |
+| [`modules/free-class-replay-video.module/`](modules/free-class-replay-video.module/) | The record's replay embed, responsive | Design Manager |
+| [`modules/watch-page-counter.module/`](modules/watch-page-counter.module/) | Countdown to the class start; hides/shows page parts at zero | Design Manager |
+| [`modules/replay-countdown.module/`](modules/replay-countdown.module/) | Countdown to the end of the 72-hour replay window; redirects when it closes | Design Manager |
+| [`modules/redirect-reg-form.module/`](modules/redirect-reg-form.module/) | Sends late registrants to the live stream instead of the confirmation page | Design Manager |
 | [`workflow-actions/late-registration-check.js`](workflow-actions/late-registration-check.js) | Custom code: did this person register after the class started? | Registration workflow (Step 8) |
 | [`workflow-actions/submit-attended-form.js`](workflow-actions/submit-attended-form.js) | Custom code: marks late registrants as attended | Registration workflow (Step 8) |
 | [`workflow-actions/class-session-label.js`](workflow-actions/class-session-label.js) | Custom code: one "2026-09-17 - Topic" dropdown value per session, for reports | Class Session workflow (Step 11) |
@@ -425,43 +425,124 @@ Every module has one **CRM object** field, named `crmobject_field` (`class_confi
 Redirect Reg Form), pointed at Free Class Configuration. The editor picks a record once,
 and every value in the module comes from it.
 
-**5a.** Go to **Marketing > Files and Templates > Design Tools** (Design Manager). Click
-**File > New file**, choose **Module**, tick **Landing pages** and **Site pages** under
-*"Where would you like to use this module?"*, choose **Local module**, set **File name**
-(e.g. `Free Class Date`), and click **Create**.
+**5a. How every module is built** (do this once per module, in 5b-5h):
 
-**5b.** Add the CRM object field. In the right sidebar click **Add field**, type `cr`,
-and pick **CRM object** under *Selectors*. Set:
+1. Go to **Marketing > Files and Templates > Design Tools** (Design Manager). Click
+   **File > New file**, choose **Module**, tick **Landing pages** and **Site pages**
+   under *"Where would you like to use this module?"*, choose **Local module**, set
+   **File name**, and click **Create**.
+2. **Add the CRM object field.** In the right sidebar click **Add field**, type `cr`,
+   and pick **CRM object** under *Selectors*:
 
-| Setting | Value |
-|---|---|
-| **HubL variable name** | `crmobject_field` (Redirect Reg Form: `class_config`) |
-| **CRM object type** | `Free Class Configuration` |
-| **Properties to fetch** | The module's properties from the table below. **A property that isn't listed here comes back empty**, even if the HubL asks for it. |
-| **Properties for choice label** | `Class Type` (optionally the date as well). Without it the picker lists raw values, such as AddEvent ids or epoch numbers, and you can't tell the records apart. |
-| **Format of choice label** | `%0` (or `%0 %1` with the date) |
-| **Default CRM object instance** | leave empty |
+   | Setting | Value |
+   |---|---|
+   | **HubL variable name** | as given in the module's step |
+   | **CRM object type** | `Free Class Configuration` |
+   | **Properties to fetch** | as given in the module's step. **A property that isn't listed here comes back empty**, even if the HubL asks for it. |
+   | **Properties for choice label** | `Class Type` (optionally the date as well). Without it the picker lists raw values, such as AddEvent ids or epoch numbers. |
+   | **Format of choice label** | `%0` (or `%0 %1` with the date) |
+   | **Default CRM object instance** | leave empty |
 
-**5c.** Add the module's other fields (table below), with the **HubL variable name**
-exactly as listed.
+3. **Add the other fields** the module's step lists, with the **HubL variable name**
+   exactly as given. Instead of clicking them in, you can open **Actions > Edit JSON**
+   *(wording may differ)* on the fields list and paste the module's whole
+   `fields.json`.
+4. **Paste the code.** In each pane, select all, delete the sample code, and paste in
+   **all** of the file the module's step links for that pane.
+5. Turn on **Make available in templates and pages** and click **Publish changes**.
+   To preview, temporarily pick a record in **Default CRM object instance**, then
+   clear it again before publishing.
 
-**5d.** Delete the sample code in each pane and paste in **all** of the matching repo file (linked in the table below, column *Code to paste*):
-`module.html` into **module.html (HTML + HubL)**, `module.css` into **module.css**,
-`module.js` into **module.js**. If you'd rather paste fields than click them, open
-**Actions > Edit JSON** *(wording may differ)* on the fields list and paste in all of the
-module's `fields.json`.
+**5b. Free Class Date.** Prints `Dates: Sep 17th, 2026`.
 
-**5e.** Turn on **Make available in templates and pages** and click **Publish changes**.
+1. **File > New file > Module**, File name `Free Class Date`, as in 5a.
+2. **Add field > CRM object**: HubL variable name `crmobject_field`, CRM object type *Free Class Configuration*, **Properties to fetch**: *4. Free Class Date*.
+3. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/free-class-date.module/module.html). Leave **module.css** and **module.js** empty.
+4. Check the fields against [`fields.json`](modules/free-class-date.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
 
-| Module | Code to paste | Fetches | Other fields (name: type) | Shows |
-|---|---|---|---|---|
-| Free Class Date | [`module.html`](modules/free-class-date.module/module.html) · [`fields.json`](modules/free-class-date.module/fields.json) · [`meta.json`](modules/free-class-date.module/meta.json) | `free_class_date` | none | `Dates: Sep 17th, 2026` |
-| Free Class Date & Time | [`module.html`](modules/free-class-date-and-time.module/module.html) · [`fields.json`](modules/free-class-date-and-time.module/fields.json) · [`meta.json`](modules/free-class-date-and-time.module/meta.json) | `free_class_date`, `class_time` | none | `Sep 17th, 2026 @ 7pm EST` |
-| Free Class Calendar Button | [`module.html`](modules/free-class-calendar-button.module/module.html) · [`module.css`](modules/free-class-calendar-button.module/module.css) · [`fields.json`](modules/free-class-calendar-button.module/fields.json) · [`meta.json`](modules/free-class-calendar-button.module/meta.json) | `add_event_id` | none | An *Add To Calendar* button to `addevent.com/event/<id>` |
-| Free Class Replay Video | [`module.html`](modules/free-class-replay-video.module/module.html) · [`module.css`](modules/free-class-replay-video.module/module.css) · [`fields.json`](modules/free-class-replay-video.module/fields.json) · [`meta.json`](modules/free-class-replay-video.module/meta.json) | `replay_video_embed_code` | none | The replay embed at 16:9 |
-| Watch Page Counter | [`module.html`](modules/watch-page-counter.module/module.html) · [`module.css`](modules/watch-page-counter.module/module.css) · [`fields.json`](modules/watch-page-counter.module/fields.json) · [`meta.json`](modules/watch-page-counter.module/meta.json) | `event_start_date_and_time` | `form_selector`: text · `hide_selector`: text · `offset_minutes`: number | Days/Hours/Minutes/Seconds to the start; at zero hides and reveals page parts |
-| Replay Countdown | [`module.html`](modules/replay-countdown.module/module.html) · [`module.css`](modules/replay-countdown.module/module.css) · [`fields.json`](modules/replay-countdown.module/fields.json) · [`meta.json`](modules/replay-countdown.module/meta.json) | `old_class_date`, `class_time`, `event_start_date_and_time`, `registration_page_url` | the three above, plus `force_open`: boolean · `forced_hide_selector`: text | Time left in the 72-hour replay window; at zero closes the replay and redirects |
-| Redirect Reg Form | [`module.html`](modules/redirect-reg-form.module/module.html) · [`module.css`](modules/redirect-reg-form.module/module.css) · [`module.js`](modules/redirect-reg-form.module/module.js) · [`fields.json`](modules/redirect-reg-form.module/fields.json) · [`meta.json`](modules/redirect-reg-form.module/meta.json) | `event_start_date_and_time`, `watch_now_youtube_link` | `button_label`: text · `confirmation_url`: text · `start_seconds`: number (default 180) · `offset_minutes`: number · `form_guid`: text | Nothing visible. Routes the form after submit. |
+✅ **Check:** pick a record and the preview shows `Dates:` and its 4. Free Class Date.
+
+**5c. Free Class Date & Time.** Prints `Sep 17th, 2026 @ 7pm EST`.
+
+1. **File > New file > Module**, File name `Free Class Date & Time`, as in 5a.
+2. **Add field > CRM object**: HubL variable name `crmobject_field`, CRM object type *Free Class Configuration*, **Properties to fetch**: *6. Free Class Time*, *4. Free Class Date*.
+3. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/free-class-date-and-time.module/module.html). Leave **module.css** and **module.js** empty.
+4. Check the fields against [`fields.json`](modules/free-class-date-and-time.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
+
+✅ **Check:** the preview shows the record's date, `@`, and its time.
+
+**5d. Free Class Calendar Button.** An *Add To Calendar* button that opens `addevent.com/event/<Add Event ID>`.
+
+1. **File > New file > Module**, File name `Free Class Calendar Button`, as in 5a.
+2. **Add field > CRM object**: HubL variable name `crmobject_field`, CRM object type *Free Class Configuration*, **Properties to fetch**: *Add Event ID*.
+3. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/free-class-calendar-button.module/module.html); **module.css** ← all of [`module.css`](modules/free-class-calendar-button.module/module.css). Leave **module.js** empty.
+4. Check the fields against [`fields.json`](modules/free-class-calendar-button.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
+
+✅ **Check:** the preview shows the button, and its link ends in the record's Add Event ID.
+
+**5e. Free Class Replay Video.** Renders the record's replay embed at 16:9.
+
+1. **File > New file > Module**, File name `Free Class Replay Video`, as in 5a.
+2. **Add field > CRM object**: HubL variable name `crmobject_field`, CRM object type *Free Class Configuration*, **Properties to fetch**: *3. Replay Video Embed Code*.
+3. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/free-class-replay-video.module/module.html); **module.css** ← all of [`module.css`](modules/free-class-replay-video.module/module.css). Leave **module.js** empty.
+4. Check the fields against [`fields.json`](modules/free-class-replay-video.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
+
+✅ **Check:** the preview shows the video player from the record's embed code.
+
+**5f. Watch Page Counter.** Days / Hours / Minutes / Seconds to the class start; at zero it hides and reveals page parts (wired in Step 6).
+
+1. **File > New file > Module**, File name `Watch Page Counter`, as in 5a.
+2. **Add field > CRM object**: HubL variable name `crmobject_field`, CRM object type *Free Class Configuration*, **Properties to fetch**: *7. Event Start Date and Time*.
+3. Add these fields (**Add field**, then set the label and HubL variable name exactly):
+
+   | Type | Label | HubL variable name | Default |
+   |---|---|---|---|
+   | Text | Selector - Hide While Active / Unhide at 0 | `form_selector` | empty |
+   | Text | Selector - Unhide While Active / Hide at 0 | `hide_selector` | empty |
+   | Number | Offset minutes | `offset_minutes` | empty |
+
+4. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/watch-page-counter.module/module.html); **module.css** ← all of [`module.css`](modules/watch-page-counter.module/module.css). Leave **module.js** empty.
+5. Check the fields against [`fields.json`](modules/watch-page-counter.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
+
+✅ **Check:** the preview shows the four-unit clock counting down to the record's 7. Event Start Date and Time.
+
+**5g. Replay Countdown.** Time left in the 72-hour replay window after Old Class Date + class time; at zero it closes the replay and redirects to Registration Page URL. 
+
+1. Create it as in 5a with File name `Replay Countdown`, or clone **Watch Page Counter** (right-click it in the file tree, **Clone** *(wording may differ)*) and rename the clone. Either way, the fields and code below replace everything in it.
+2. **Add field > CRM object**: HubL variable name `crmobject_field`, CRM object type *Free Class Configuration*, **Properties to fetch**: *Old Class Date*, *6. Free Class Time*, *7. Event Start Date and Time*, *Registration Page URL*.
+3. Add these fields (**Add field**, then set the label and HubL variable name exactly):
+
+   | Type | Label | HubL variable name | Default |
+   |---|---|---|---|
+   | Text | Selector - Hide While Active / Unhide at 0 | `form_selector` | empty |
+   | Text | Selector - Unhide While Active / Hide at 0 | `hide_selector` | empty |
+   | Number | Offset minutes | `offset_minutes` | empty |
+   | Boolean | Ignore countdown - keep replay open | `force_open` | `false` |
+   | Text | Selector - Hide when toggle is on | `forced_hide_selector` | empty |
+
+4. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/replay-countdown.module/module.html); **module.css** ← all of [`module.css`](modules/replay-countdown.module/module.css). Leave **module.js** empty.
+5. Check the fields against [`fields.json`](modules/replay-countdown.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
+
+✅ **Check:** the preview shows a clock counting down to 72 hours after the record's Old Class Date at its class time.
+
+**5h. Redirect Reg Form.** Shows nothing on the page. After the class has started it sends a registrant straight to the live link instead of `confirmation_url`.
+
+1. **File > New file > Module**, File name `Redirect Reg Form`, as in 5a.
+2. **Add field > CRM object**: HubL variable name `class_config`, CRM object type *Free Class Configuration*, **Properties to fetch**: *7. Event Start Date and Time*, *1. Watch Now YouTube Link*.
+3. Add these fields (**Add field**, then set the label and HubL variable name exactly):
+
+   | Type | Label | HubL variable name | Default |
+   |---|---|---|---|
+   | Text | Button Label | `button_label` | `continue to payment` |
+   | Text | confirmation_url | `confirmation_url` | empty |
+   | Number | start_seconds | `start_seconds` | `180` |
+   | Number | offset_minutes | `offset_minutes` | empty |
+   | Text | form_guid | `form_guid` | empty |
+
+4. Delete the sample code and paste: **module.html (HTML + HubL)** ← all of [`module.html`](modules/redirect-reg-form.module/module.html); **module.css** ← all of [`module.css`](modules/redirect-reg-form.module/module.css); **module.js** ← all of [`module.js`](modules/redirect-reg-form.module/module.js).
+5. Check the fields against [`fields.json`](modules/redirect-reg-form.module/fields.json) (or paste it with **Edit JSON**, 5a), then **Publish changes**.
+
+✅ **Check:** with a record picked the preview is blank; with no record it shows *"Free Class Live Router is not configured."*
 
 > ⚠️ **After you add a property to *Properties to fetch*, re-select the record** in
 > every page that already uses the module. Pages keep the old fetch list until you do.
@@ -1121,7 +1202,7 @@ All config tokens come from that branch's **Active &lt;Topic&gt; Config**.
 | Symptom | Cause | Fix |
 |---|---|---|
 | A module shows nothing on the live page | No record picked in its **CRM object** field, or the property is empty on the record | Step 6a; check the record |
-| The editor says *"Countdown is not rendering: pick a CRM object that has an Event Start Date and Time value"* | The record's 7. is empty, or the module doesn't fetch it | Step 4; Step 5b *Properties to fetch* |
+| The editor says *"Countdown is not rendering: pick a CRM object that has an Event Start Date and Time value"* | The record's 7. is empty, or the module doesn't fetch it | Step 4; Step 5a *Properties to fetch* (and the module's own step, 5f or 5g) |
 | The countdown runs but nothing hides at zero | The selector fields hold ids from the other (desktop/mobile) section, or a stale form id | Step 6c, list both copies |
 | The page still shows last session's date | CDN cache | Reload with `?v=<anything>` (Step 13) |
 | Create record fails: *"Required properties were missing or empty"* | Class Name/Topic built from a token that's empty: the data source didn't find a record | Step 8f: property-equals source, Class Type set on the record |
