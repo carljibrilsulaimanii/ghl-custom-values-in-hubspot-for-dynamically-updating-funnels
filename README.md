@@ -157,6 +157,8 @@ flipped to next month is still credited to the session the person actually watch
 | [`workflow-actions/late-registration-check.js`](workflow-actions/late-registration-check.js) | Custom code: did this person register after the class started? | Registration workflow (Step 8) |
 | [`workflow-actions/submit-attended-form.js`](workflow-actions/submit-attended-form.js) | Custom code: marks late registrants as attended | Registration workflow (Step 8) |
 | [`workflow-actions/class-session-label.js`](workflow-actions/class-session-label.js) | Custom code: one "2026-09-17 - Topic" dropdown value per session, for reports | Class Session workflow (Step 11) |
+| [`backfills/`](backfills/) | Optional Python scripts: re-tag a stale session, check a count against the search API, plus the shared token helper | Your computer (Section 8, Steps B1 and B4-B4) |
+| [`backfills/tracker-import/`](backfills/tracker-import/) | Optional Python scripts that rebuild old-platform class history as HubSpot import files | Your computer (Section 8, Steps B2-B3) |
 | [`test/`](test/) | 23 tests: the three actions run unchanged, plus a check that every module only reads properties the schema defines | `npm test` |
 
 ---
@@ -184,6 +186,12 @@ flipped to next month is still credited to the session the person actually watch
 5. [Limits](#5-limits)
 6. [Testing](#6-testing)
 7. [Security](#7-security)
+8. [Backfilling registration records](#8-backfilling-registration-records)
+   - [Step B1: Know which scripts write, and get the token ready](#step-b1-know-which-scripts-write-and-get-the-token-ready)
+   - [Step B2: Rebuild the old platform's history as import files](#step-b2-rebuild-the-old-platforms-history-as-import-files)
+   - [Step B3: Import the files into HubSpot](#step-b3-import-the-files-into-hubspot)
+   - [Step B4: Re-tag registrations that landed on the wrong session](#step-b4-re-tag-registrations-that-landed-on-the-wrong-session)
+   - [Step B5: Check a count before you quote it](#step-b5-check-a-count-before-you-quote-it)
 
 ---
 
@@ -197,6 +205,7 @@ flipped to next month is still credited to the session the person actually watch
 | Workflows with the **"If a property value is equal to"** data source | The *Active &lt;Topic&gt; Config* source. It was marked **BETA** when this was built. |
 | Super Admin, or permission to create objects, properties, workflows and modules | Every step |
 | Optional: Node.js 20+ | Only for the schema script (Step 1, Route B) and `npm test` |
+| Optional: Python 3.10+ and `requests` | Only for the backfill scripts (Section 8) |
 
 ---
 
@@ -694,7 +703,7 @@ them. *Class Name/Topic* is three chips with ` - ` typed between them:
 
 **Check where a chip reads from.** Hover the chip's **ⓘ**. The tooltip names the
 property and the source: *"This is the 9b. Tag - Free Class Replay property of the
-Active Dividends Config."* This tooltip is the only place a wrong source shows up.
+Active Topic B Config."* This tooltip is the only place a wrong source shows up.
 
 **Remove a chip.** Click it and choose **Remove data token**, or use the field's bin
 icon to clear the whole field.
@@ -1159,7 +1168,7 @@ CDN can serve a cached page for up to about 10 hours, so a page without one may 
 show last session's date. Confirm the date, the countdown target and the calendar
 button. The day after the flip, filter Class Registrations on the new **Class Date**
 and group by **FC Status Tag**. Any old-session tag there means a branch still reads a
-stale value.
+stale value. Fix the branch, then move those records with Step B4.
 
 ### Step 14: Add a new topic
 
@@ -1218,6 +1227,12 @@ All config tokens come from that branch's **Active &lt;Topic&gt; Config**.
 | Twice as many attended records as people | Re-submissions; trigger runs on every submission | Count unique Registration Reference (Step 9) |
 | Class Session empty for one topic | No topic rule in `class-session-label.js` | Step 11c |
 | Replay page never closes | `Old Class Date` empty, or *force_open* on | Step 13; Step 6d |
+| Next class's registrations carry the previous topic's tag | A branch or data source still read the old values after a flip | Fix the branch; re-tag with Step B4 |
+| Registrations with no Email or Phone number | The Create record action doesn't map the Email / Phone tokens | Map them (Steps 8g, 9d, 10c); old records keep the gap unless you fill them by hand or with a workflow |
+| Import fails: *"Invalid email"* | A fake domain (`.con`, `.c`) the repair didn't know | Step B3e |
+| Import fails: *"There was an issue with the file upload"* | The month's file is too big, or open in Excel | Step B3e: split that month only |
+| Imported records have no contact | Single-object import, or `Contact Email` left unmapped | Step B3b-B3c |
+| A report and the record list disagree on a day's count | UTC vs portal time zone, or a reporting-engine overcount | Step B5 |
 | Late registrant lands on the confirmation page | Redirect Reg Form missing, or its record has no 1. or 7. (the editor shows *"Free Class Live Router is not configured"*) | Step 6b; Step 4 |
 
 ---
@@ -1283,6 +1298,411 @@ npm test
   the object.
 - **Service keys:** give the schema key only the scopes listed in Step 1, and revoke it
   after the objects exist.
+- **Backfill scripts** read the key only from the `HUBSPOT_TOKEN` environment variable
+  ([`hubspot_auth.py`](backfills/hubspot_auth.py)) and never print it. Their output
+  files (import CSVs, backups, the checkpoint) hold real names, emails and phones;
+  `.gitignore` keeps them out of git. Revoke the backfill key when you're done.
+
+---
+
+## 8. Backfilling registration records
+
+The workflows in Steps 8-10 only record what happens after you turn them on. These
+scripts deal with everything else: the history that's still on your old platform, and
+records the workflows wrote with something missing or wrong. Do these steps once,
+after Steps 1-14, and again only when a check shows you need them.
+
+All of them are Python and run on your computer, in PowerShell, from the
+[`backfills/`](backfills/) folder (or [`backfills/tracker-import/`](backfills/tracker-import/)
+for Step B2). None of them is needed for the funnel to work.
+
+### Step B1: Know which scripts write, and get the token ready
+
+About 10 minutes.
+
+**B1a. Read this table before you run anything.** Two scripts change records in
+HubSpot. Both do nothing unless you add a flag, and both should be tried on a few
+records first.
+
+| Script | What it does | Writes to HubSpot? | Token scopes |
+|---|---|---|---|
+| [`tracker-import/scan.py`](backfills/tracker-import/scan.py), [`build.py`](backfills/tracker-import/build.py), [`drop_overlaps.py`](backfills/tracker-import/drop_overlaps.py), [`split.py`](backfills/tracker-import/split.py) | Turn old-platform exports into import files (Step B2) | **No.** Local files only. The *import* in Step B3 is the write, and it creates contacts too. | none |
+| [`retag-registrations.py`](backfills/retag-registrations.py) | Moves registrations from a stale session's tag to the right class (Step B4) | **Yes, only with `--apply`.** The dry run writes a backup CSV first. | `crm.objects.custom.read`, `crm.objects.custom.write` |
+| [`search-verify-counts.py`](backfills/search-verify-counts.py) | Checks a count before you quote it (Step B5) | No, read only | `crm.objects.custom.read` |
+
+> ⚠️ **The backfill outputs hold real contact data.** Backup CSVs, the checkpoint and
+> the import files land next to the scripts or in your work folder. The repo's
+> `.gitignore` keeps `backfills/**/*.csv` out of git, but if you fork this, check before
+> you commit.
+
+**B1b. Python.** Install Python 3.10 or newer, then the one library
+the scripts need:
+
+```powershell
+python -m pip install requests
+```
+
+**B1c. Create a service key.** **Settings > Integrations > Service Keys** *(wording may
+differ)* **> Create service key**. Tick the scopes from the table for the scripts you'll
+run. A read-only key is enough for Step B5 only.
+
+**B1d. Put the key in the terminal you'll run the scripts from.** Every script reads it
+through [`hubspot_auth.py`](backfills/hubspot_auth.py), which only looks at the
+`HUBSPOT_TOKEN` environment variable and never prints it:
+
+```powershell
+cd backfills                 # from the repo folder
+$env:HUBSPOT_TOKEN = "<your service key>"
+python hubspot_auth.py
+```
+
+Runs [`backfills/hubspot_auth.py`](backfills/hubspot_auth.py).
+
+**B1e. Put your object type id in each script.** Open the Class Registrations object
+(**Settings > Data Management > Objects**); the id looks like `2-12345678` and is also
+in the address bar of its record list. Replace `REPLACE_WITH_OBJECT_TYPE_ID` in
+[`retag-registrations.py`](backfills/retag-registrations.py) (`OBJECT`) and
+[`search-verify-counts.py`](backfills/search-verify-counts.py) (`OBJECT`).
+
+| Input | Where it goes |
+|---|---|
+| Service key | `$env:HUBSPOT_TOKEN`, in the same PowerShell window |
+| Class Registrations object type id | `REG_OBJECT` / `OBJECT` in the three API scripts |
+
+✅ **Check:** `python hubspot_auth.py` prints `HUBSPOT_TOKEN: set`. A new PowerShell
+window starts without it, so run B1d again in every new window.
+
+### Step B2: Rebuild the old platform's history as import files
+
+About 1-2 hours the first time, most of it checking the output.
+
+This is for the classes that ran **before** your HubSpot workflows went live. On
+GoHighLevel that history only exists as contact **tags**
+(`Topic A Free Class Registration [Sep 17th 2026]`) plus "latest value" custom fields
+(*FC Reg Date*, *FC Attend Date*, …) that a later class overwrites. No one export has
+all of it, so the scripts merge every export you have into one row per person per
+class, in the same columns as a HubSpot export of the Class Registrations object.
+
+**B2a. Gather the exports into one folder.**
+
+| File | From | Must have | Used by |
+|---|---|---|---|
+| Contact exports, as many as you have (all contacts, per-tag lists, older exports) | Old platform, *Export contacts* | `Email` and `Tags` columns. Also used when present: `First Name`, `Last Name`, `Phone` (or `Phone Number`), `Created`, `FC Status Tag`, `FC Reg Date`/`Time`, `FC Attend Date`/`Time`, `FC Replay Date`/`Time`, `FC Upsell Date`/`Time`, `UTM Source - First`/`- Last` (and Medium, Campaign) | [`scan.py`](backfills/tracker-import/scan.py), [`build.py`](backfills/tracker-import/build.py) |
+| A per-event tracker sheet, saved as CSV | Whatever logged each registration as it happened (we had a sheet) | `Email`, `FC Status Tag`, `Date`, `Time`, `First UTM Source` … `Last Referrer`, `Source`, `FBCLID` | [`build.py`](backfills/tracker-import/build.py) |
+| A HubSpot export of the Class Registrations object, all records, all properties | HubSpot record list, **Export** | `Email`, `Class Date`, `FC Status Tag` | [`build.py`](backfills/tracker-import/build.py) |
+
+> ⚠️ **Dates must look like `Sep 17 2026` and times like `7:05 PM`.** That's how
+> GoHighLevel exports its date fields. A date in another format (`2026-09-17`,
+> `17/09/2026`) is skipped without an error, and the row just loses its timestamp. Check
+> `_Registered At Source` in B2d: lots of `none` means a format mismatch.
+
+> ⚠️ **Keep the work folder and the output folder outside the exports folder.** The
+> scripts read every CSV under the exports folder, searching subfolders too.
+
+**B2b. Edit the settings at the top of each script.** Every value to change is marked
+`REPLACE`.
+
+| File | Setting | Set it to |
+|---|---|---|
+| [`scan.py`](backfills/tracker-import/scan.py) | `ROOT` | The exports folder |
+| [`scan.py`](backfills/tracker-import/scan.py) and [`build.py`](backfills/tracker-import/build.py) | `CLASS_TAG` | Every spelling your tags used for each topic, e.g. `topic as?` for both "Topic A" and "Topic As" |
+| [`scan.py`](backfills/tracker-import/scan.py) | `tag_class()` return line; `LEGACY`; the offer names in the "free-class-ish" line | Your topic spellings; tags from older funnels to report but skip; your offer names |
+| [`build.py`](backfills/tracker-import/build.py) | `parse_tag()` return line | The same topic spellings |
+| [`build.py`](backfills/tracker-import/build.py) | `DL`, `SHEET`, `HS` | The exports folder, the tracker sheet, the HubSpot export |
+| [`build.py`](backfills/tracker-import/build.py) | `CUTOFF` | The first class date you want imported |
+| [`build.py`](backfills/tracker-import/build.py) | `PROGRAM` | One entry per topic: class title, the **Class Topic** and **Free Class Type** options from Step 2, and the configuration record id |
+| [`build.py`](backfills/tracker-import/build.py) | `HEADER` | The header row of your HubSpot export (B2a), in the same order |
+| [`build.py`](backfills/tracker-import/build.py) | `ATTR`, `FIXUP`, the `att_missing` threshold and date, the assumed attended time | See the comments beside each |
+| [`split.py`](backfills/tracker-import/split.py) | `OUT`, `FLAT` | The output folder and the all-months file. `SPLIT` stays `{}` for now. |
+
+> ⚠️ **Registration Reference must match what your live workflows write.**
+> [`build.py`](backfills/tracker-import/build.py) writes `email-<configuration record
+> id>-<class date>`. Step 8g writes `email-<tag>`. Two formats mean the same person can
+> never be matched across the two sets. Pick one and change the `'Registration
+> Reference'` line in `build.py`, or the Create record mappings, to match.
+
+**B2c. Run the four scripts in order.** Set the work folder once; every script reads
+`$env:SP`:
+
+```powershell
+cd backfills\tracker-import  # from the repo folder
+$env:SP = "C:\path\to\work-folder"
+python scan.py
+python build.py
+python drop_overlaps.py
+python split.py
+```
+
+Runs [`scan.py`](backfills/tracker-import/scan.py), then
+[`build.py`](backfills/tracker-import/build.py) (which imports
+[`emailfix.py`](backfills/tracker-import/emailfix.py) from the same folder, as `scan.py`
+does), then [`drop_overlaps.py`](backfills/tracker-import/drop_overlaps.py), then
+[`split.py`](backfills/tracker-import/split.py).
+
+| Script | Writes | Success looks like |
+|---|---|---|
+| `scan.py` | `events.tsv` and six `.json` files in `$env:SP` | `scanned (Email+Tags)` above 0, and `free-class-ish but UNPARSED` empty or only tags you don't want |
+| `build.py` | `hubspot_backfill.csv` (every row, with audit columns), `hubspot_backfill_EXCLUDED.csv` | `wrote N rows`, `unparsed=0` (or a number you've explained), and a `Class Status` breakdown that looks like your classes |
+| `drop_overlaps.py` | `hubspot_backfill_IMPORT.csv` | `invalid TLD remaining : 0`, `masked remaining : 0`, `Contact Email == Email: True` |
+| `split.py` | One CSV per class month in `OUT`, plus `FLAT` | `all rows preserved : True`, `headers identical : True []` |
+
+> ⚠️ **`unparsed` in build.py's output is lost rows.** `scan.py` accepts a tag with
+> extra spaces in it, but `build.py`'s pattern wants single spaces, so a tag like
+> `Topic A Free Class Registration  [Sep 17th 2026]` (double space before the bracket)
+> is counted as unparsed and not written. Tag strings drift like this in practice
+> (Step 4). If the number isn't 0, find those tags in `events.tsv` and widen
+> `CLASS_TAG` in `build.py`.
+
+**B2d. Read the audit columns before importing.** Every column starting with `_` is for
+you, not HubSpot. They say where each value came from, so you can decide what to trust:
+
+| Column | Tells you |
+|---|---|
+| `_Registered At Source` | `FC Reg Date/Time`, `tracker sheet`, `tracker sheet (other tag)`, `contact Created`, or `none` |
+| `_Attended At Source` | `FC Attend Date`, `tracker sheet`, or `assumed 19:27 EST` (no real time survived) |
+| `_UTM Source Of` | `tracker sheet (per-event)` or `contact-level (point-in-time)` |
+| `_Overlaps HubSpot` | `yes` = the same email and Class Date already exist in HubSpot. `drop_overlaps.py` removes these. |
+| `_Data Note` | Repaired emails (`email repaired from "…"`) and classes whose attendee tag never fired |
+| `_Upsell Product`, `_Upsell At` | An upsell tag was on the contact; not imported (see below) |
+
+The rules [`build.py`](backfills/tracker-import/build.py) applies, so you can check
+them against your own funnel:
+
+- **Status:** an attendee tag, or an *FC Attend Date* on the class date, means
+  *Attended*; otherwise a replay tag means *Watched Replay*; otherwise *Registered*.
+- **Registered At must fall in the registration window.** Nobody registers for a class
+  after it has run, but the configuration flips late on class night, so a *Registered*
+  row may be stamped up to one day after the class. An *Attended* row may not be later
+  than the class. Replay sign-ups run until the next class of the same topic.
+- **A contact's *Created* date is used only if it's 0-90 days before the class.**
+  For a repeat attendee it says nothing about this class, so otherwise it stays blank.
+- **Replay times are matched by window, not by tag.** *FC Status Tag* often names the
+  upcoming class by the time someone watches the replay.
+- **Per-event UTMs win.** The tracker sheet recorded the UTMs at the moment of each
+  registration. The contact's own UTMs are its latest touch, often a later campaign.
+  Contact-level values are only a fallback, and `_UTM Source Of` says which one won.
+- **Unknown is not zero.** A big class with no attendee tag at all is flagged in
+  `_Data Note`, so it doesn't read as 0% attendance.
+- **Two topics on the same date stay separate.** Everything is keyed on email, topic
+  and class date.
+
+> ⚠️ **Masked emails are dropped on purpose.** Addresses like `****@example.com` or
+> `a*****@example.com` are the mark of a privacy erasure in the source system. They
+> can't be matched to a contact, and importing them would recreate data someone asked
+> to have removed. They're listed in `hubspot_backfill_EXCLUDED.csv`.
+
+> ⚠️ **Only two kinds of bad email are repaired.** A phone number stuck on the end
+> (`x@example.com5555550123`) and a fake top-level domain (`.con`, `.vom`, `.nwt`,
+> a truncated `.c`) are fixed, because a fake domain can't be anyone's real mailbox.
+> A misspelled provider (`@gnail.com`) is **not** fixed: it could be one letter from two
+> different real providers, and a guess would send mail to the wrong person. Domains too
+> mangled to fix go to the EXCLUDED file.
+
+> ⚠️ **Upsell tags don't name the product.** The old tag was a generic "free class
+> upsell purchases", so the script keeps it in the audit columns and never sets a
+> purchase property from it.
+
+✅ **Check:** open the IMPORT file and look up three people you know, one per status.
+Their Class Date, Class Status, FC Status Tag and Registered At should match what you
+remember of them.
+
+### Step B3: Import the files into HubSpot
+
+About 15 minutes for the first file, 5 for each one after.
+
+**B3a. Start the import.** **Data Management > Data Integration > Import** *(wording may
+differ)*, then import from a file. The wizard has four stages: **Type**, **Upload**,
+**Map**, **Details**.
+
+**B3b. Upload.** Under *"Is your data in one or multiple files?"* choose **Single file**
+(*"Contacts and Class Registrations data in a single file"*). Set **Choose how to
+import Contacts** to **Create and update Contacts** and **Choose how to import Class
+Registrations** to **Create and update Class Registrations**. Drop the **smallest month**
+into **Contacts and Class Registrations file** as a pilot.
+
+> ⚠️ **Choose both objects.** The `Contact Email` column is what links each record to
+> its contact. In a Class-Registrations-only import there's no *Contact* property to map
+> it to, and every record imports with no contact.
+
+**B3c. Map.** Each row shows **Column header from file**, **Import as** and **HubSpot
+property**.
+
+| Column | Import as | HubSpot property |
+|---|---|---|
+| The object's own columns (`Attendance Status` … `Watch Duration`) | **Class Registration properties** | The property of the same name. HubSpot matches most by itself. |
+| `Free Class Date` | Class Registration properties | The **text** property `Free Class Date`. It holds `Sep 17th, 2026`; a date property errors on every row. |
+| `Contact Email` | Contact properties *(wording may differ)* | **Email** |
+| `_First Name`, `_Last Name` | Contact properties *(wording may differ)* | **First Name**, **Last Name** (fills names on contacts the import creates) |
+| `Record ID` and every other `_` column | **Choose how to import** left empty | Leave unmapped |
+
+A column whose first rows are empty shows *"Unable to check for errors because many of
+the starting rows are empty."* That's fine.
+
+> ⚠️ **Audit columns get auto-mapped onto real properties.** In our first pilot HubSpot
+> guessed `_Referrer` → *Referrer Name* and `_UTM Source Of` → *utm_source*, which would
+> have written "contact-level (point-in-time)" over real contact UTMs.
+> [`split.py`](backfills/tracker-import/split.py) now drops both from the import files.
+> Check every `_` row still reads unmapped.
+
+**B3d. Details** (*"A few final details"*):
+
+| Field | Set to | Why |
+|---|---|---|
+| **Import name \*** | The file name | So a failed month is easy to find |
+| **Create a contacts segment from this import** | Ticked | A list of exactly what this import touched, for checking and clean-up |
+| **Select the legal basis for processing a contact's data \*** | Your choice, e.g. *Legitimate interest - Lead* | Required |
+| **Date format** | **year month day** | The files use `2026-09-17` and `2026-09-17 19:27` |
+| **Time zone** | **US/Eastern** (shown as *-04:00 US/Eastern* in summer), or your zone | The old platform exported local time |
+| **Set these contacts as marketing contacts** | **Unticked** | This is the billing switch. Ticked, every new contact counts toward your marketing-contact tier. |
+| **Enrich these records** | Off | Otherwise it spends enrichment credits on every new contact |
+
+Read **Estimated number of marketing contacts added with this import** before you
+click import. It's roughly the number of new contacts the file will create. Ours was
+almost one per row: these people weren't in HubSpot yet.
+
+**B3e. Errors.** After the import, **N errors** lists each failed row with **Import
+error**, row and column. *"Invalid email"* on the Email column means a fake domain got
+through. Fix [`emailfix.py`](backfills/tracker-import/emailfix.py) if it's a pattern it
+doesn't know, re-run B2c, and import the failed month again.
+
+> ⚠️ **"There was an issue with the file upload."** Our largest month (about 34 MB)
+> failed at the upload step while months up to about 28 MB went through. Close the file
+> in Excel and retry once. If it fails again, set `SPLIT = {'yyyy-mm': 2}` in
+> [`split.py`](backfills/tracker-import/split.py) for **that month only** and re-run it.
+
+> ⚠️ **Don't regenerate files you're halfway through importing.**
+> [`split.py`](backfills/tracker-import/split.py) deletes every CSV in `OUT` before
+> writing. Re-splitting everything changes file names and row ranges for months you've
+> already imported. Split only the month that failed.
+
+> ⚠️ **Not confirmed: "Create and update" may only update when it can match a record.** For Class
+> Registrations that means a **Record ID** column, or a property set to require unique
+> values. The import files leave Record ID blank, so re-importing a month that already
+> went in may create a second copy of every row. Import each month once to be safe. If you need to
+> re-run one, delete its records first (the contacts segment from B3d finds them).
+
+✅ **Check:** the Class Registrations record list total goes up by the file's row count,
+and a record from the pilot shows the contact under **Associations**. Then import the
+other months.
+
+### Step B4: Re-tag registrations that landed on the wrong session
+
+About 15 minutes. **Writes to HubSpot with `--apply`.**
+
+When you flip to a *different* topic (Step 13), registrations for the next class can
+arrive with the right **Class Date** but the previous topic's **FC Status Tag**,
+**Class Topic**, **Class Session** and **Free Class Date**, if a branch or data source
+still reads the old values. They drop out of the next class's count. Step 13's check
+(filter on the new Class Date, group by FC Status Tag) is how you find them.
+[`retag-registrations.py`](backfills/retag-registrations.py) moves them across.
+
+**B4a. Copy the right values from a correct record.** Open a registration for the
+next class that *was* written correctly and copy its values into the script,
+character for character:
+
+| Setting | Example | Where to read it |
+|---|---|---|
+| `OLD_TAG` | `Topic B Free Class Registration [Sep 10th 2026]` | FC Status Tag on a wrong record |
+| `OLD_SESSION` | `2026-09-17 - Topic B` | Class Session on a wrong record |
+| `NEW_TAG` | `Topic A Free Class Registration [Sep 17th 2026]` | FC Status Tag on a correct record |
+| `NEW_VALUES` | `class_topic`, `class_session`, `free_class_date` | The same fields on the correct record |
+
+The script only matches records with all three of `OLD_TAG`, `OLD_SESSION` and
+**Class Status** *Registered*. It changes those four properties and swaps the tag inside
+**Class Name/Topic**. Class Date and Class Status are left alone.
+
+**B4b. Dry run.** Writes nothing to HubSpot:
+
+```powershell
+python retag-registrations.py
+```
+
+Runs [`retag-registrations.py`](backfills/retag-registrations.py). Success looks like
+`Matched records: N`, `Backup written: …backup_before_retag_<date>_<time>.csv`, the
+spread of `Enrolled dates`, a single `class_date` value, an `Example rename`, and
+`DRY RUN - nothing written.`
+
+Check two things before going on: `class_date values` shows only the next class's date,
+and the earliest enrolled date is **after** the previous class ended. If either is off,
+some of these people really did register for the old session.
+
+**B4c. Apply.**
+
+```powershell
+python retag-registrations.py --apply
+```
+
+Runs [`retag-registrations.py`](backfills/retag-registrations.py). It prints
+`Updated 100 / N` per batch, then `Done.`
+
+**B4d. Run the dry run again.** It should print `Matched records: 0` and
+`Nothing to do.`
+
+> ⚠️ **A read-only key fails here with `HTTP 403`.** It fails at the first batch, after
+> the backup is written, so nothing is half-done, but nothing is written either. Give
+> the key `crm.objects.custom.write`.
+
+> ⚠️ **Attendance records are left out on purpose.** A few *Attended* records may carry
+> the same stale tag. The `Registered` filter skips them; decide on those by hand.
+
+> ⚠️ **Keep the backup.** The CSV holds every changed record's old values and is the
+> only way back. It contains names and emails, so keep it out of git (the
+> `.gitignore` already does).
+
+✅ **Check:** Step 13's check shows a single FC Status Tag for the new Class Date.
+
+### Step B5: Check a count before you quote it
+
+About 5 minutes.
+
+Backfills change counts, and HubSpot will give you different numbers for the same
+question depending on where you ask. Before a figure goes in a message, check it
+against the search API, which is what the record list itself uses.
+
+**B5a.** In [`search-verify-counts.py`](backfills/search-verify-counts.py), fill
+`DAYS` with each day, its start and end in UTC, and the figure your report gave. Change
+the filters in `search_total()` to the ones your report used.
+
+**B5b.** Run it:
+
+```powershell
+python search-verify-counts.py
+```
+
+Runs [`search-verify-counts.py`](backfills/search-verify-counts.py). It prints a table of
+`search`, `reporting` and `reporting/search` per day. A ratio near **1.00** means the
+report is right. Well above 1.00 means the search column is the truth; re-derive from
+it.
+
+> ⚠️ **Search filters dates in UTC; reports use your portal's time zone.** An Eastern
+> day is `T04:00:00Z` to `T04:00:00Z` in summer and `T05:00:00Z` in winter. Filter
+> search on plain dates and the evening sign-ups of one day land in the next.
+
+Rules for counting this object, from the mistakes we made:
+
+- **Count a class on Class Date, not Class Session.** The session label depends on the
+  page and branch that wrote the record, so a variant page writes a different label for
+  the same class, and those records go missing from a session count. They aren't
+  random: in our case most of the missing records came from one ad channel.
+- **Count people, not records.** Re-submissions and repeat enrollments write extra
+  records (Step 9). Count unique **Registration Reference**, or unique **Email**. If the
+  reference is built from the person's name, one person under two spellings counts
+  twice.
+- **Registered is not a superset of Attended.** Some attendees never have a
+  *Registered* record (they arrive from a reminder link, for example). Choose the
+  denominator for show-up rate on purpose.
+- **Say when you counted.** Records for a class keep arriving for a day after it, so a
+  count without a time goes stale.
+- **In the search API, Class Date needs epoch milliseconds** (midnight UTC), not
+  `2026-09-17`; a date string returns HTTP 400. A search also stops at 10,000 results;
+  get round that by re-querying with `hs_object_id` greater than the last id you saw.
+- **Some UTM values aren't sources.** `IMPORT`, `INTEGRATION`, `CRM_UI`,
+  `{{site_source_name}}`, referring domains and `source / medium` pairs come from
+  traffic-source drill-downs, not URLs (Step 8d's ⚠️). A backfill from the contact can't
+  fix records whose contact has no UTMs. Leave these values out of attribution reports.
+
+✅ **Check:** the ratio for each day is close to 1.00, or you've replaced the report's
+figures with the search numbers.
 
 ---
 

@@ -1,3 +1,8 @@
 node_modules/
 .env
 *.log
+__pycache__/
+# backfill outputs: real contact data, never commit
+backfills/**/*.csv
+backfills/backfill-checkpoint.json
+backfills/no-contact-records.txt
