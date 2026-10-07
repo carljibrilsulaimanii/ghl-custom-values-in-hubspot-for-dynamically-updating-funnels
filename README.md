@@ -126,6 +126,8 @@ from one session to the next. They only change when you add a topic (Step 14).
   Registration page                                  Registration form ─► 2. Registration workflow
     Free Class Date & Time  "Sep 17th, 2026 @ 7pm"     └─ Create record: Class Registration  (Registered)
     Redirect Reg Form  ─ late? go to live stream       └─ Late check (code) ─► submit Attended form
+  Confirmation page
+    Live Redirect (head)  after start, go to stream
   Watch page                                         Attended form ─────► 4. Attended workflow
     Watch Page Counter  countdown, flips at 7pm        └─ Create record: Class Registration  (Attended)
     Free Class Calendar Button  AddEvent link        Replay form ───────► 5. Replay workflow
@@ -154,6 +156,8 @@ flipped to next month is still credited to the session the person actually watch
 | [`modules/watch-page-counter.module/`](modules/watch-page-counter.module/) | Countdown to the class start; hides/shows page parts at zero | Design Manager |
 | [`modules/replay-countdown.module/`](modules/replay-countdown.module/) | Countdown to the end of the 72-hour replay window; redirects when it closes | Design Manager |
 | [`modules/redirect-reg-form.module/`](modules/redirect-reg-form.module/) | Sends late registrants to the live stream instead of the confirmation page | Design Manager |
+| [`page-snippets/free-class-live-redirect.js`](page-snippets/free-class-live-redirect.js) | After the class starts, sends confirmation-page visitors to the live stream, keeping UTMs | Design Manager, as a JavaScript file (Step 6f) |
+| [`page-snippets/confirmation-live-redirect-head.html`](page-snippets/confirmation-live-redirect-head.html) | HubL block that picks the record by subdomain and loads the script above | Each confirmation page's Head HTML (Step 6f) |
 | [`workflow-actions/late-registration-check.js`](workflow-actions/late-registration-check.js) | Custom code: did this person register after the class started? | Registration workflow (Step 8) |
 | [`workflow-actions/submit-attended-form.js`](workflow-actions/submit-attended-form.js) | Custom code: marks late registrants as attended | Registration workflow (Step 8) |
 | [`workflow-actions/class-session-label.js`](workflow-actions/class-session-label.js) | Custom code: one "2026-09-17 - Topic" dropdown value per session, for reports | Class Session workflow (Step 11) |
@@ -634,6 +638,71 @@ instance if you want the replay open indefinitely (for example, an evergreen rep
 published page once with `?v=1` added (to skip the CDN cache). Then temporarily set
 **Offset minutes** to a large number so the clock hits zero, confirm the right parts hide
 and show, and set it back to `0`.
+
+**6f. Send confirmation-page visitors to the live class.** About 15 minutes, once.
+
+Someone who opens the confirmation page after the class has started (from the
+confirmation email, or because they registered late and the form's own redirect
+didn't fire) reads "come back at 7pm" and leaves. A block in the page's head sends
+them to the live stream instead. Unlike the modules, it's a page snippet plus one
+JavaScript file.
+
+| File | Goes in |
+|---|---|
+| [`page-snippets/free-class-live-redirect.js`](page-snippets/free-class-live-redirect.js) | Design Manager, as a JavaScript file named exactly `Free Class Live Redirect.js` |
+| [`page-snippets/confirmation-live-redirect-head.html`](page-snippets/confirmation-live-redirect-head.html) | Each confirmation page: **Settings → Advanced → Additional code snippets → Head HTML** (wording may differ) |
+
+1. In **Design Manager**, create a new JavaScript file named `Free Class Live Redirect.js`
+   at the top level, delete the sample code, paste in **all** of
+   [`page-snippets/free-class-live-redirect.js`](page-snippets/free-class-live-redirect.js)
+   and publish it. The block loads it with `get_asset_url('/Free Class Live Redirect.js')`,
+   so the name and folder must match.
+2. Open [`page-snippets/confirmation-live-redirect-head.html`](page-snippets/confirmation-live-redirect-head.html)
+   and edit two things:
+   - `class_records`: one line per funnel subdomain, mapped to that topic's configuration
+     record id (Step 4).
+   - the object name in `crm_object(...)`: `p<your portal id>_free_class_configurations`.
+3. Paste **all** of the edited block into each confirmation page's **Head HTML** and
+   publish. The same block goes on every confirmation page; `request.domain` picks the
+   right record.
+
+The block reads two properties from the record:
+
+| Record property | Used as |
+|---|---|
+| `7. Event Start Date and Time` (`event_start_date_and_time`) | When to start redirecting |
+| `1. Watch Now YouTube Link` (`watch_now_youtube_link`) | Where to send them |
+
+The script then:
+- does nothing before the start time, or inside the page editor
+- copies `utm_*`, `hsa_*` and ad click ids from the page URL, and the saved values from
+  the `site_attr` cookie, onto the watch link, so attribution survives the jump
+- waits 400 ms so pixels in the head can finish sending, then redirects
+
+> ⚠️ **Confirmation pages only.** The script redirects on load. On a registration page it
+> would send people away before they register.
+
+> ⚠️ **One copy per page.** A second copy in the Footer HTML box loads the script twice.
+> On one of our funnels the block had also been pasted with its two `<script>` tags
+> stripped out: the HubL still ran and printed nothing, so nothing redirected and nothing
+> errored. Paste the whole file.
+
+> ⚠️ **Check every funnel.** A subdomain missing from `class_records`, or a page missing
+> the block, fails silently. Our audit found one of three funnels without it.
+
+> ⚠️ **A stale record redirects to the wrong class.** If a record's
+> `7. Event Start Date and Time` still holds another class's slot, visitors are sent to
+> this record's video at that other class's time. Fix the record, not the code.
+
+> ⚠️ **To test before a class**, change `offset: 0` in the block to a number of minutes
+> larger than the time left (the redirect then starts that many minutes early), check
+> with `?v=check1` on the URL, and set it back to `0`. Previews redirect too, by design,
+> so test on a copy of the page if real visitors might hit it.
+
+✅ **Check:** each published confirmation page, opened with `?v=check1`, has
+`typeof window.liveClassConfig` equal to `"object"` in the console, with the right start
+time and watch link. After the start time, opening it lands on the stream with your
+`utm_*` values attached.
 
 ### Step 7: Set up the forms
 
@@ -1233,6 +1302,7 @@ All config tokens come from that branch's **Active &lt;Topic&gt; Config**.
 | Import fails: *"There was an issue with the file upload"* | The month's file is too big, or open in Excel | Step B3e: split that month only |
 | Imported records have no contact | Single-object import, or `Contact Email` left unmapped | Step B3b-B3c |
 | A report and the record list disagree on a day's count | UTC vs portal time zone, or a reporting-engine overcount | Step B5 |
+| Confirmation page doesn't redirect after the class starts | Block missing from that page's Head HTML, the subdomain isn't in `class_records`, or the record lacks 1. or 7. (console shows *"Free Class Live Redirect: ..."*) | Step 6f |
 | Late registrant lands on the confirmation page | Redirect Reg Form missing, or its record has no 1. or 7. (the editor shows *"Free Class Live Router is not configured"*) | Step 6b; Step 4 |
 
 ---

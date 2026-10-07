@@ -1,0 +1,67 @@
+<!--
+  ============================================================================
+  Free Class Live Redirect - confirmation page HEAD block (HubL)
+  ============================================================================
+  Author:   Jibril Sulaiman
+  Created:  2026-09-14 (published 2026-10-07)
+
+  Deploy:   Every confirmation page: page editor > Settings > Advanced >
+            Additional code snippets > Head HTML (README Step 6f).
+            Paste in ONE place per page. A second copy (for example in the
+            Footer HTML box) loads the script twice and registers two redirects.
+
+  WHAT IT DOES
+    Looks up the funnel's Free Class Configuration record by request.domain,
+    publishes the class start time and watch link to window.liveClassConfig,
+    then loads Free Class Live Redirect.js, which sends anyone who lands on the
+    confirmation page after the class has started straight to the live stream.
+
+  EDIT BEFORE PASTING
+    - class_records: one line per funnel subdomain -> its configuration record id
+      (README Step 4). The same block is then correct on every page; request.domain
+      picks the record. Never hard-code one record id per page.
+    - The object name in crm_object(): p<portal id>_free_class_configurations
+      (README Step 1; Settings > Data Management > Objects shows it).
+
+  IF NOTHING HAPPENS
+    The {% else %} branch writes a console error naming the cause: the record is
+    missing 7. Event Start Date and Time or 1. Watch Now YouTube Link. Check the
+    record before suspecting this block. Pages are cached by the CDN, so test with
+    a throwaway query string (?v=check1) and, in the console:
+      typeof window.liveClassConfig   -> "object"
+      window.liveClassConfig.start    -> the class start time
+      window.liveClassConfig.watch    -> the watch link
+  ============================================================================
+-->
+
+{% set class_records = {
+  "topic-a.example.com": 10000000001,
+  "topic-b.example.com": 10000000002,
+  "topic-c.example.com": 10000000003
+} %}
+
+{% set record_id = class_records[request.domain] %}
+
+{% if record_id %}
+  {% set fc = crm_object(
+    "p12345678_free_class_configurations",
+    record_id,
+    "event_start_date_and_time,watch_now_youtube_link"
+  ) %}
+
+  {% if fc and fc.event_start_date_and_time and fc.watch_now_youtube_link %}
+  <script>
+    window.liveClassConfig = {
+      start:   "{{ fc.event_start_date_and_time }}",
+      watch:   "{{ fc.watch_now_youtube_link|escape_js }}",
+      seconds: 0,
+      offset:  0
+    };
+  </script>
+  <script src="{{ get_asset_url('/Free Class Live Redirect.js') }}"></script>
+  {% else %}
+  <script>
+    console.error("Free Class Live Redirect: config record is missing the start time or watch link.");
+  </script>
+  {% endif %}
+{% endif %}
